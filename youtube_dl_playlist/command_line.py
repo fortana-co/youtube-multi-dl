@@ -14,6 +14,8 @@ parser.add_argument('-a', '--artist', required=True,
                     help='Playlist artist(s)')
 parser.add_argument('-A', '--album',
                     help='Playlist album(s), defaults to YouTube playlist name')
+parser.add_argument('--keep_id', action='store_true',
+                    help='Keep YouTube URL/ID in filename')
 
 
 def main():
@@ -24,7 +26,7 @@ def main():
     """
     args = parser.parse_args()
     kwargs = {name: args.__getattribute__(name) for name in [
-        'url', 'artist', 'album',
+        'url', 'artist', 'album', 'keep_id',
     ]}
     if not subprocess.call(['which', 'ffmpeg']) == 0:
         print("ffmpeg isn't installed!")

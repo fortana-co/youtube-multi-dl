@@ -6,7 +6,7 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url, artist, album=''):
+def downloader(url, artist, album='', keep_id=False):
     info_opts = {'dump_single_json': True, 'extract_flat': True}
     with youtube_dl.YoutubeDL(info_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -41,3 +41,8 @@ def downloader(url, artist, album=''):
                 audio['album'] = album
                 audio['tracknumber'] = f"{i + 1}/{len(info.get('entries'))}"
                 audio.save()
+                if not keep_id:
+                    os.rename(
+                        file,
+                        ''.join(file.split(f"-{track_info['id']}")),
+                    )
