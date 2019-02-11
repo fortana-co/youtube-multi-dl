@@ -20,7 +20,7 @@ def downloader(url, artist, album='', keep_id=False):
     os.chdir(directory)
 
     download_opts = {
-        'format': 'bestaudio/best',
+        'ignoreerrors': True,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -32,8 +32,10 @@ def downloader(url, artist, album='', keep_id=False):
 
     if info.get('extractor') == 'youtube:playlist':
         for i, entry in enumerate(info.get('entries')):
-            with youtube_dl.YoutubeDL(info_opts) as ydl:
+            with youtube_dl.YoutubeDL({**info_opts, 'ignoreerrors': True}) as ydl:
                 track_info = ydl.extract_info(entry['id'], download=False)
+            if not track_info:
+                continue
             for file in glob.glob(f"*{track_info['id']}.mp3"):
                 audio = EasyID3(file)
                 audio['title'] = track_info['title']
