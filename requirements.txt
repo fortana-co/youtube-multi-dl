@@ -1,0 +1,2 @@
+youtube-dl==2019.2.8
+mutagen==1.42.0
