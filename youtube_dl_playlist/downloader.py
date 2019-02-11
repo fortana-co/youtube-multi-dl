@@ -6,10 +6,25 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url, artist, album='', keep_id=False):
-    info_opts = {'dump_single_json': True, 'extract_flat': True}
+def downloader(url, artist, album='', playlist_items='', keep_id=False):
+    opts = {'ignoreerrors': True}
+    if playlist_items:
+        opts['playlist_items'] = playlist_items
+
+    info_opts = {**opts, 'dump_single_json': True, 'extract_flat': True}
+    download_opts = {
+        **opts,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
     with youtube_dl.YoutubeDL(info_opts) as ydl:
         info = ydl.extract_info(url, download=False)
+    if not info:
+        sys.exit("couldn't get playlist info")
 
     album = album or info['title']
     directory = f"./{album}"
@@ -19,20 +34,12 @@ def downloader(url, artist, album='', keep_id=False):
         sys.exit(f"{e}\n\nyoutube-dl-playlist can't overwrite existing directories")
     os.chdir(directory)
 
-    download_opts = {
-        'ignoreerrors': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
     with youtube_dl.YoutubeDL(download_opts) as ydl:
         ydl.download([url])
 
     if info.get('extractor') == 'youtube:playlist':
         for i, entry in enumerate(info.get('entries')):
-            with youtube_dl.YoutubeDL({**info_opts, 'ignoreerrors': True}) as ydl:
+            with youtube_dl.YoutubeDL(info_opts) as ydl:
                 track_info = ydl.extract_info(entry['id'], download=False)
             if not track_info:
                 continue

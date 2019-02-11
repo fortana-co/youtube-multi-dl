@@ -14,7 +14,9 @@ parser.add_argument('-a', '--artist', required=True,
                     help='Playlist artist(s)')
 parser.add_argument('-A', '--album',
                     help='Playlist album(s), defaults to YouTube playlist name')
-parser.add_argument('--keep_id', action='store_true',
+parser.add_argument('--playlist-items',
+                    help='Playlist tracks to download')
+parser.add_argument('--keep-id', action='store_true',
                     help='Keep YouTube URL/ID in filename')
 
 
@@ -25,9 +27,16 @@ def main():
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
     args = parser.parse_args()
-    kwargs = {name: args.__getattribute__(name) for name in [
-        'url', 'artist', 'album', 'keep_id',
-    ]}
+    kwargs = {}
+    for name in [
+        'url',
+        'artist',
+        'album',
+        'playlist_items',
+        'keep_id',
+    ]:
+        if args.__getattribute__(name) is not None:
+            kwargs[name] = args.__getattribute__(name)
     if not subprocess.call(['which', 'ffmpeg']) == 0:
         print("ffmpeg isn't installed!")
         print("without ffmpeg you can't convert video to audio...")
