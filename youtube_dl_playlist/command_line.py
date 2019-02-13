@@ -38,7 +38,9 @@ def main():
         if args.__getattribute__(name) is not None:
             kwargs[name] = args.__getattribute__(name)
     if not subprocess.call(['which', 'ffmpeg']) == 0:
-        print("ffmpeg isn't installed!")
-        print("without ffmpeg you can't convert video to audio...")
+        print("ffmpeg isn't installed! youtube-dl-playlist needs ffmpeg to convert video to audio...")
+        print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
+        print("osx: `brew install ffmpeg`")
+        print("ubuntu: `sudo apt-get install ffmpeg`")
         sys.exit()
     downloader(**kwargs)

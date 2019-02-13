@@ -7,7 +7,7 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url, artist, album='', playlist_items='', keep_id=False):
+def downloader(url, artist, album='', playlist_items='', keep_id=False, keep_source_file=False):
     opts = {'ignoreerrors': True}
     if playlist_items:
         opts['playlist_items'] = playlist_items
@@ -59,18 +59,18 @@ def downloader(url, artist, album='', playlist_items='', keep_id=False):
                     )
 
     if info.get('extractor') == 'youtube':
-        big_file = glob.glob('*{}.mp3'.format(info['id']))[0]
+        source_file = glob.glob('*{}.mp3'.format(info['id']))[0]
         chapters = info.get('chapters')
         if not chapters:
-            return
+            sys.exit('monolithic file with no chapters')
 
         for i, chapter in enumerate(chapters):
             start_time = chapter['start_time']
             end_time = chapter['end_time']
             title = chapter.get('title') or str(i + 1)
-            file = '{}.mp3'.format(title)
+            file = clean('{}.mp3'.format(title))
             command = [
-                'ffmpeg', '-i', big_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
+                'ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
             ]
             subprocess.check_output(command)
             set_audio_id3(
@@ -87,3 +87,7 @@ def set_audio_id3(file, **kwargs):
     for k, v in kwargs.items():
         audio[k] = v
     audio.save()
+
+
+def clean(file):
+    return file.replace('/', '').replace(chr(92), '').replace(chr(0), '')
