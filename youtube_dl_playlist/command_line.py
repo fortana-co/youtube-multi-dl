@@ -16,8 +16,8 @@ parser.add_argument('-A', '--album',
                     help='Playlist album(s), defaults to YouTube playlist name')
 parser.add_argument('--playlist-items',
                     help='Playlist tracks to download')
-parser.add_argument('--keep-id', action='store_true',
-                    help='Keep YouTube URL/ID in filename')
+parser.add_argument('--remove-source-file', action='store_true',
+                    help='Remove source file with chapters after download')
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
         'artist',
         'album',
         'playlist_items',
-        'keep_id',
+        'remove_source_file',
     ]:
         if args.__getattribute__(name) is not None:
             kwargs[name] = args.__getattribute__(name)
