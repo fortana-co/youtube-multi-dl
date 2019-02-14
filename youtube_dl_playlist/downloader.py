@@ -34,30 +34,26 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
         os.makedirs(directory)
     except FileExistsError:
         print('\nthe album directory {} already exists'.format(directory))
-        text = input('(d)ownload again, (s)kip download but continue, (e)xit: ')
-        if text.lower() == 'd':
+        text = capture_input('(d)ownload again, (s)kip download but continue, (e)xit: ', 'd', 's', 'e')
+        if text == 'd':
             pass
-        elif text.lower() == 's':
+        elif text == 's':
             download = False
-        elif text.lower() == 'e':
+        elif text == 'e':
             print('\nexiting...')
             sys.exit(0)
-        else:
-            sys.exit('\n`{}` not a recognized option, exiting...'.format(text))
 
     os.chdir(directory)
 
     # single file, no chapters
     if info.get('extractor') == 'youtube' and not info.get('chapters'):
         print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
-        text = input('(y)es, (n)o: ')
+        text = capture_input('(y)es, (n)o: ', 'y', 'n')
         if text.lower() == 'y':
             pass
         elif text.lower() == 'n':
             print('\nexiting...')
             sys.exit(0)
-        else:
-            sys.exit('\n`{}` not a recognized option, exiting...'.format(text))
 
         if download:
             with youtube_dl.YoutubeDL(download_opts) as ydl:
@@ -121,6 +117,15 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
                     album=album,
                     tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
                 )
+
+
+def capture_input(prompt, *options):
+    while True:
+        text = input(prompt).lower()
+        if text in options:
+            return text
+        else:
+            print('`{}` is not a valid option'.format(text))
 
 
 def set_audio_id3(file, **kwargs):
