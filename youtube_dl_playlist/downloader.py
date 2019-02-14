@@ -127,11 +127,14 @@ def playlist(url, artist, album, info, download, info_opts, download_opts, remov
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
+    status = []
     for i, entry in enumerate(info.get('entries')):
         with youtube_dl.YoutubeDL(info_opts) as ydl:
             track_info = ydl.extract_info(entry['id'], download=False)
-        if not track_info:
+        if track_info is None:
+            status.append((i + 1, False, entry['id'], entry.get('title', '')))
             continue
+        status.append((i + 1, True, track_info['id'], track_info['title']))
         for file in glob.glob('*{}.mp3'.format(track_info['id'])):
             set_audio_id3(
                 file,
@@ -140,6 +143,17 @@ def playlist(url, artist, album, info, download, info_opts, download_opts, remov
                 album=album,
                 tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
             )
+    print('\n{}\n'.format(format_status(status)))
+
+
+def format_status(tracks):
+    strings = []
+    for track in tracks:
+        num, success, youtube_id, name = track
+        strings.append('    '.join([
+            str(num).rjust(5), '✔' if success else '✘', 'https://www.youtube.com/watch?v={}'.format(youtube_id), name,
+        ]))
+    return '\n'.join(strings)
 
 
 def capture_input(prompt, *options):
