@@ -45,78 +45,101 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
 
     os.chdir(directory)
 
-    # single file, no chapters
-    if info.get('extractor') == 'youtube' and not info.get('chapters'):
-        print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
-        text = capture_input('(y)es, (n)o: ', 'y', 'n')
-        if text.lower() == 'y':
-            pass
-        elif text.lower() == 'n':
-            print('\nexiting...')
-            sys.exit(0)
+    args = [url, artist, album, info, download, info_opts, download_opts, remove_source_file]
+    if info.get('extractor') == 'youtube':
+        if not info.get('chapters'):
+            no_chapters(*args)
+        else:
+            chapters(*args)
+    elif info.get('extractor') == 'youtube:playlist':
+        playlist(*args)
 
-        if download:
-            with youtube_dl.YoutubeDL(download_opts) as ydl:
-                ydl.download([url])
 
-        files = glob.glob('*{}.mp3'.format(info['id']))
-        if files:
-            set_audio_id3(
-                files[0],
-                artist=artist,
-                album=album,
-            )
+def no_chapters(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+    """Single file, no chapters.
+    """
+    print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
+    text = capture_input('(y)es, (n)o: ', 'y', 'n')
+    if text.lower() == 'y':
+        pass
+    elif text.lower() == 'n':
+        try:
+            os.rmdir(os.getcwd())
+        except Exception as e:
+            print(e)
+        print('\nexiting...')
         sys.exit(0)
 
     if download:
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
-    # single file with chapters
-    if info.get('extractor') == 'youtube':
-        split = True
-        files = glob.glob('*{}.mp3'.format(info['id']))
-        if not(files):
-            split = False
+    for file in glob.glob('*{}.mp3'.format(info['id'])):
+        set_audio_id3(
+            file,
+            title=info['title'],
+            artist=artist,
+            album=album,
+        )
 
-        chapters = info.get('chapters')
 
-        for i, chapter in enumerate(chapters):
-            start_time = chapter['start_time']
-            end_time = chapter['end_time']
-            title = chapter.get('title') or str(i + 1)
-            file = clean_filename('{}.mp3'.format(title))
-            if split:
-                cmd = ['ffmpeg', '-i', files[0], '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file]
-                subprocess.check_output(cmd)
+def chapters(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+    """Single file with chapters.
+    """
+    if download:
+        with youtube_dl.YoutubeDL(download_opts) as ydl:
+            ydl.download([url])
+
+    split = True
+    files = glob.glob('*{}.mp3'.format(info['id']))
+    if not(files):
+        split = False
+    source_file = files[0]
+
+    chapters = info.get('chapters')
+
+    for i, chapter in enumerate(chapters):
+        start_time = chapter['start_time']
+        end_time = chapter['end_time']
+        title = chapter.get('title') or str(i + 1)
+        file = clean_filename('{}.mp3'.format(title))
+        if split:
+            cmd = [
+                'ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
+            ]
+            subprocess.check_output(cmd)
+        set_audio_id3(
+            file,
+            title=title,
+            artist=artist,
+            album=album,
+            tracknumber='{}/{}'.format(i + 1, len(chapters)),
+        )
+    if remove_source_file:
+        try:
+            os.remove(source_file)
+        except:
+            pass
+
+
+def playlist(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+    if download:
+        with youtube_dl.YoutubeDL(download_opts) as ydl:
+            ydl.download([url])
+
+    for i, entry in enumerate(info.get('entries')):
+        with youtube_dl.YoutubeDL(info_opts) as ydl:
+            track_info = ydl.extract_info(entry['id'], download=False)
+        if not track_info:
+            continue
+        for file in glob.glob('*{}.mp3'.format(track_info['id'])):
             set_audio_id3(
                 file,
-                title=title,
+                title=track_info['title'],
                 artist=artist,
                 album=album,
-                tracknumber='{}/{}'.format(i + 1, len(chapters)),
+                tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
             )
-        if remove_source_file:
-            try:
-                os.remove(file)
-            except:
-                pass
-
-    # playlist
-    if info.get('extractor') == 'youtube:playlist':
-        for i, entry in enumerate(info.get('entries')):
-            with youtube_dl.YoutubeDL(info_opts) as ydl:
-                track_info = ydl.extract_info(entry['id'], download=False)
-            if not track_info:
-                continue
-            for file in glob.glob('*{}.mp3'.format(track_info['id'])):
-                set_audio_id3(
-                    file,
-                    title=track_info['title'],
-                    artist=artist,
-                    album=album,
-                    tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
-                )
 
 
 def capture_input(prompt, *options):
