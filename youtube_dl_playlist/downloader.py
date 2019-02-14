@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import glob
 import subprocess
@@ -7,7 +8,7 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url, artist, album='', playlist_items='', remove_source_file=False):
+def downloader(url, artist, album='', playlist_items='', remove_source_file=False, strip_patterns=None):
     opts = {'ignoreerrors': True}
     if playlist_items:
         opts['playlist_items'] = playlist_items
@@ -45,17 +46,27 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
 
     os.chdir(directory)
 
-    args = [url, artist, album, info, download, info_opts, download_opts, remove_source_file]
+    all_kwargs = {
+        'url': url,
+        'artist': artist,
+        'album': album,
+        'info': info,
+        'download': download,
+        'info_opts': info_opts,
+        'download_opts': download_opts,
+        'remove_source_file': remove_source_file,
+        'strip_patterns': strip_patterns,
+    }
     if info.get('extractor') == 'youtube':
         if not info.get('chapters'):
-            no_chapters(*args)
+            no_chapters(**all_kwargs)
         else:
-            chapters(*args)
+            chapters(**all_kwargs)
     elif info.get('extractor') == 'youtube:playlist':
-        playlist(*args)
+        playlist(**all_kwargs)
 
 
-def no_chapters(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+def no_chapters(url, artist, album, info, download, download_opts, strip_patterns, **kwargs):
     """Single file, no chapters.
     """
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
@@ -77,13 +88,13 @@ def no_chapters(url, artist, album, info, download, info_opts, download_opts, re
     for file in glob.glob('*{}.mp3'.format(info['id'])):
         set_audio_id3(
             file,
-            title=info['title'],
+            title=strip(info['title'], strip_patterns),
             artist=artist,
             album=album,
         )
 
 
-def chapters(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+def chapters(url, artist, album, info, download, download_opts, remove_source_file, strip_patterns, **kwargs):
     """Single file with chapters.
     """
     if download:
@@ -110,7 +121,7 @@ def chapters(url, artist, album, info, download, info_opts, download_opts, remov
             subprocess.check_output(cmd)
         set_audio_id3(
             file,
-            title=title,
+            title=strip(title, strip_patterns),
             artist=artist,
             album=album,
             tracknumber='{}/{}'.format(i + 1, len(chapters)),
@@ -122,7 +133,7 @@ def chapters(url, artist, album, info, download, info_opts, download_opts, remov
             pass
 
 
-def playlist(url, artist, album, info, download, info_opts, download_opts, remove_source_file, *args):
+def playlist(url, artist, album, info, download, info_opts, download_opts, strip_patterns, **kwargs):
     if download:
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
@@ -134,11 +145,13 @@ def playlist(url, artist, album, info, download, info_opts, download_opts, remov
         if track_info is None:
             status.append((i + 1, False, entry['id'], entry.get('title', '')))
             continue
-        status.append((i + 1, True, track_info['id'], track_info['title']))
+
+        title = strip(track_info['title'], strip_patterns)
+        status.append((i + 1, True, track_info['id'], title))
         for file in glob.glob('*{}.mp3'.format(track_info['id'])):
             set_audio_id3(
                 file,
-                title=track_info['title'],
+                title=title,
                 artist=artist,
                 album=album,
                 tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
@@ -178,3 +191,11 @@ def set_audio_id3(file, **kwargs):
 
 def clean_filename(file):
     return file.replace('/', '').replace(chr(92), '').replace(chr(0), '')
+
+
+def strip(s, patterns=None):
+    if not patterns:
+        return s
+    for pattern in patterns:
+        s = re.sub(pattern, '', s, flags=re.IGNORECASE)
+    return s

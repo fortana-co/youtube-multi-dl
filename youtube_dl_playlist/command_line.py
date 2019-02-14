@@ -14,10 +14,12 @@ parser.add_argument('-a', '--artist', required=True,
                     help='Playlist artist(s)')
 parser.add_argument('-A', '--album',
                     help='Playlist album(s), defaults to YouTube playlist name')
-parser.add_argument('--playlist-items',
+parser.add_argument('-p', '--playlist-items',
                     help='Playlist tracks to download')
-parser.add_argument('--remove-source-file', action='store_true',
+parser.add_argument('-r', '--remove-source-file', action='store_true',
                     help='Remove source file with chapters after download')
+parser.add_argument('-s', '--strip-patterns', type=str, nargs='+',
+                    help='Remove patterns from title')
 
 
 def main():
@@ -34,6 +36,7 @@ def main():
         'album',
         'playlist_items',
         'remove_source_file',
+        'strip_patterns',
     ]:
         if args.__getattribute__(name) is not None:
             kwargs[name] = args.__getattribute__(name)
