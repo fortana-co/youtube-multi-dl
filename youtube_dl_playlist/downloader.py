@@ -1,3 +1,4 @@
+from typing import Any, List, Dict, Tuple
 import os
 import re
 import sys
@@ -8,8 +9,8 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url='', album='', playlist_items='', **kwargs):
-    opts = {'ignoreerrors': True}
+def downloader(url='', album='', playlist_items='', **kwargs) -> Any:
+    opts: Dict[str, Any] = {'ignoreerrors': True}
     if playlist_items:
         opts['playlist_items'] = playlist_items
 
@@ -62,7 +63,7 @@ def downloader(url='', album='', playlist_items='', **kwargs):
         playlist(**all_kwargs)
 
 
-def no_chapters(url, artist, album, info, download, download_opts, strip_patterns, **kwargs):
+def no_chapters(url, artist, album, info, download, download_opts, strip_patterns, **kwargs) -> Any:
     """Single file, no chapters.
     """
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
@@ -93,7 +94,7 @@ def no_chapters(url, artist, album, info, download, download_opts, strip_pattern
             pass
 
 
-def chapters(url, artist, album, info, download, download_opts, remove_source_file, strip_patterns, **kwargs):
+def chapters(url, artist, album, info, download, download_opts, remove_source_file, strip_patterns, **kwargs) -> Any:
     """Single file with chapters.
     """
     if download:
@@ -132,28 +133,35 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
             pass
 
 
-def playlist(url, artist, album, info, download, info_opts, download_opts, strip_patterns, **kwargs):
+def playlist(
+    url, artist, album, info, download, info_opts, download_opts, strip_patterns, track_numbers, **kwargs,
+) -> Any:
+    tracks = parse_track_numbers(track_numbers)
+    entries = info.get('entries')
+    if tracks and len(entries) != len(tracks):
+        sys.exit('you passed {} track(s) but there are {} file(s) in the playlist'.format(len(tracks), len(entries)))
     if download:
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
     status = []
-    for i, entry in enumerate(info.get('entries')):
+    for i, entry in enumerate(entries):
+        idx = tracks[i] if tracks else i + 1
         with youtube_dl.YoutubeDL(info_opts) as ydl:
             track_info = ydl.extract_info(entry['id'], download=False)
         if track_info is None:
-            status.append((i + 1, False, entry['id'], entry.get('title', '')))
+            status.append((idx, False, entry['id'], entry.get('title', '')))
             continue
 
         title = strip(track_info['title'], strip_patterns)
-        status.append((i + 1, True, track_info['id'], title))
+        status.append((idx, True, track_info['id'], title))
         for file in glob.glob('*{}.mp3'.format(track_info['id'])):
             set_audio_id3(
                 file,
                 title=title,
                 artist=artist,
                 album=album,
-                tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
+                tracknumber='{}/{}'.format(idx, len(info.get('entries'))),
             )
             try:
                 os.rename(file, '{}-{}.mp3'.format(title, track_info['id']))
@@ -162,7 +170,7 @@ def playlist(url, artist, album, info, download, info_opts, download_opts, strip
     print('\n{}\n'.format(format_status(status)))
 
 
-def format_status(tracks):
+def format_status(tracks: List[Tuple[int, bool, str, str]]) -> str:
     strings = []
     for track in tracks:
         num, success, youtube_id, name = track
@@ -172,7 +180,7 @@ def format_status(tracks):
     return '\n'.join(strings)
 
 
-def capture_input(prompt, *options):
+def capture_input(prompt: str, *options) -> str:
     while True:
         text = input(prompt).lower()
         if text in options:
@@ -181,7 +189,7 @@ def capture_input(prompt, *options):
             print('`{}` is not a valid option'.format(text))
 
 
-def set_audio_id3(file, **kwargs):
+def set_audio_id3(file: str, **kwargs) -> None:
     try:
         audio = EasyID3(file)
     except Exception as e:
@@ -192,13 +200,30 @@ def set_audio_id3(file, **kwargs):
     audio.save()
 
 
-def clean_filename(file):
+def clean_filename(file: str) -> str:
     return file.replace('/', '').replace(chr(92), '').replace(chr(0), '')
 
 
-def strip(s, patterns=None):
+def strip(s: str, patterns: List[str] = None) -> str:
     if not patterns:
         return s
     for pattern in patterns:
         s = re.sub(pattern, '', s, flags=re.IGNORECASE)
     return s
+
+
+def parse_track_numbers(s: str) -> List[int]:
+    tracks: List[int] = []
+    try:
+        s = s.replace(' ', '')
+        if not s:
+            return []
+        for rng in s.split(','):
+            pair = rng.split('-')
+            if len(pair) == 1:
+                tracks.append(int(pair[0]))
+            else:
+                tracks += [i for i in range(int(pair[0]), int(pair[1]) + 1)]
+        return tracks
+    except Exception as e:
+        sys.exit('invalid track numbers: {}'.format(e))
