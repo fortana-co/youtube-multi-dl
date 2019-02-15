@@ -8,7 +8,7 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url, artist, album='', playlist_items='', remove_source_file=False, strip_patterns=None):
+def downloader(url='', album='', playlist_items='', **kwargs):
     opts = {'ignoreerrors': True}
     if playlist_items:
         opts['playlist_items'] = playlist_items
@@ -36,9 +36,7 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
     except FileExistsError:
         print('\nthe album directory {} already exists'.format(directory))
         text = capture_input('(d)ownload again, (s)kip download but continue, (e)xit: ', 'd', 's', 'e')
-        if text == 'd':
-            pass
-        elif text == 's':
+        if text == 's':
             download = False
         elif text == 'e':
             print('\nexiting...')
@@ -48,14 +46,12 @@ def downloader(url, artist, album='', playlist_items='', remove_source_file=Fals
 
     all_kwargs = {
         'url': url,
-        'artist': artist,
         'album': album,
         'info': info,
         'download': download,
         'info_opts': info_opts,
         'download_opts': download_opts,
-        'remove_source_file': remove_source_file,
-        'strip_patterns': strip_patterns,
+        **kwargs,
     }
     if info.get('extractor') == 'youtube':
         if not info.get('chapters'):
@@ -71,9 +67,7 @@ def no_chapters(url, artist, album, info, download, download_opts, strip_pattern
     """
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
     text = capture_input('(y)es, (n)o: ', 'y', 'n')
-    if text.lower() == 'y':
-        pass
-    elif text.lower() == 'n':
+    if text == 'n':
         try:
             os.rmdir(os.getcwd())
         except Exception as e:
@@ -85,13 +79,18 @@ def no_chapters(url, artist, album, info, download, download_opts, strip_pattern
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
+    title = strip(info['title'], strip_patterns)
     for file in glob.glob('*{}.mp3'.format(info['id'])):
         set_audio_id3(
             file,
-            title=strip(info['title'], strip_patterns),
+            title=title,
             artist=artist,
             album=album,
         )
+        try:
+            os.rename(file, '{}-{}.mp3'.format(title, info['id']))
+        except Exception:
+            pass
 
 
 def chapters(url, artist, album, info, download, download_opts, remove_source_file, strip_patterns, **kwargs):
@@ -112,8 +111,8 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
     for i, chapter in enumerate(chapters):
         start_time = chapter['start_time']
         end_time = chapter['end_time']
-        title = chapter.get('title') or str(i + 1)
-        file = clean_filename('{}.mp3'.format(title))
+        title = clean_filename(strip(chapter.get('title') or str(i + 1), strip_patterns))
+        file = '{}.mp3'.format(title)
         if split:
             cmd = [
                 'ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
@@ -121,7 +120,7 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
             subprocess.check_output(cmd)
         set_audio_id3(
             file,
-            title=strip(title, strip_patterns),
+            title=title,
             artist=artist,
             album=album,
             tracknumber='{}/{}'.format(i + 1, len(chapters)),
@@ -129,7 +128,7 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
     if remove_source_file:
         try:
             os.remove(source_file)
-        except:
+        except Exception:
             pass
 
 
@@ -156,6 +155,10 @@ def playlist(url, artist, album, info, download, info_opts, download_opts, strip
                 album=album,
                 tracknumber='{}/{}'.format(i + 1, len(info.get('entries'))),
             )
+            try:
+                os.rename(file, '{}-{}.mp3'.format(title, track_info['id']))
+            except Exception:
+                pass
     print('\n{}\n'.format(format_status(status)))
 
 

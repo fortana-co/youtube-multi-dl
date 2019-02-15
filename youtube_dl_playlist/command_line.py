@@ -12,9 +12,9 @@ parser.add_argument('-u', '--url', required=True,
                     help='URL of YouTube playlist')
 parser.add_argument('-a', '--artist', required=True,
                     help='Playlist artist(s)')
-parser.add_argument('-A', '--album',
+parser.add_argument('-A', '--album', default='',
                     help='Playlist album(s), defaults to YouTube playlist name')
-parser.add_argument('-p', '--playlist-items',
+parser.add_argument('-p', '--playlist-items', default='',
                     help='Playlist tracks to download')
 parser.add_argument('-r', '--remove-source-file', action='store_true',
                     help='Remove source file with chapters after download')
@@ -23,7 +23,7 @@ parser.add_argument('-s', '--strip-patterns', type=str, nargs='+',
 
 
 def main():
-    """The `console_scripts` entry point for pick-git. There's no need to pass
+    """The `console_scripts` entry point for youtube-dl-playlist. There's no need to pass
     arguments to this function, because `argparse` reads `sys.argv[1:]`.
 
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
@@ -38,8 +38,7 @@ def main():
         'remove_source_file',
         'strip_patterns',
     ]:
-        if args.__getattribute__(name) is not None:
-            kwargs[name] = args.__getattribute__(name)
+        kwargs[name] = args.__getattribute__(name)
     if not subprocess.call(['which', 'ffmpeg']) == 0:
         print("ffmpeg isn't installed! youtube-dl-playlist needs ffmpeg to convert video to audio...")
         print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
