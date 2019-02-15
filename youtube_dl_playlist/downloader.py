@@ -109,28 +109,35 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
 
     chapters = info.get('chapters')
 
+    status = []
     for i, chapter in enumerate(chapters):
+        idx = i + 1
         start_time = chapter['start_time']
         end_time = chapter['end_time']
-        title = clean_filename(strip(chapter.get('title') or str(i + 1), strip_patterns))
+        title = clean_filename(strip(chapter.get('title') or str(idx), strip_patterns))
         file = '{}.mp3'.format(title)
         if split:
             cmd = [
                 'ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
             ]
             subprocess.check_output(cmd)
-        set_audio_id3(
+        if set_audio_id3(
             file,
             title=title,
             artist=artist,
             album=album,
-            tracknumber='{}/{}'.format(i + 1, len(chapters)),
-        )
+            tracknumber='{}/{}'.format(idx, len(chapters)),
+        ):
+            status.append((idx, True, title))
+        else:
+            status.append((idx, False,title))
     if remove_source_file:
         try:
             os.remove(source_file)
         except Exception:
             pass
+    print('\nplaylist built from single video with chapters: {}'.format(url))
+    print('\n{}\n'.format('\n'.join(format_status_chapters(s) for s in status)))
 
 
 def playlist(
@@ -161,23 +168,25 @@ def playlist(
                 title=title,
                 artist=artist,
                 album=album,
-                tracknumber='{}/{}'.format(idx, len(info.get('entries'))),
+                tracknumber='{}/{}'.format(idx, len(entries)),
             )
             try:
                 os.rename(file, '{}-{}.mp3'.format(title, track_info['id']))
             except Exception:
                 pass
-    print('\n{}\n'.format(format_status(status)))
+    print('\n{}\n'.format('\n'.join(format_status(s) for s in status)))
 
 
-def format_status(tracks: List[Tuple[int, bool, str, str]]) -> str:
-    strings = []
-    for track in tracks:
-        num, success, youtube_id, name = track
-        strings.append('    '.join([
-            str(num).rjust(5), '✔' if success else '✘', 'https://www.youtube.com/watch?v={}'.format(youtube_id), name,
-        ]))
-    return '\n'.join(strings)
+def format_status_chapters(track: Tuple[int, bool, str]) -> str:
+    num, success, name = track
+    return '    '.join([str(num).rjust(5), '✔' if success else '✘', name])
+
+
+def format_status(track: Tuple[int, bool, str, str]) -> str:
+    num, success, youtube_id, name = track
+    return '    '.join([
+        str(num).rjust(5), '✔' if success else '✘', 'https://www.youtube.com/watch?v={}'.format(youtube_id), name,
+    ])
 
 
 def capture_input(prompt: str, *options) -> str:
@@ -189,15 +198,16 @@ def capture_input(prompt: str, *options) -> str:
             print('`{}` is not a valid option'.format(text))
 
 
-def set_audio_id3(file: str, **kwargs) -> None:
+def set_audio_id3(file: str, **kwargs) -> bool:
     try:
         audio = EasyID3(file)
     except Exception as e:
         print("{}\ntried to set metadata on {} but couldn't, skipping...".format(e, file))
-        return
+        return False
     for k, v in kwargs.items():
         audio[k] = v
     audio.save()
+    return True
 
 
 def clean_filename(file: str) -> str:
