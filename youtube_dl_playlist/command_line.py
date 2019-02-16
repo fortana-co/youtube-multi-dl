@@ -54,4 +54,8 @@ def main():
         print("osx: `brew install ffmpeg`")
         print("ubuntu: `sudo apt-get install ffmpeg`")
         sys.exit()
-    downloader(**kwargs)
+
+    try:
+        downloader(**kwargs)
+    except KeyboardInterrupt:
+        sys.exit()
