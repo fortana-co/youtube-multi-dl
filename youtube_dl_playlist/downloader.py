@@ -9,7 +9,15 @@ import youtube_dl
 from mutagen.easyid3 import EasyID3
 
 
-def downloader(url='', album='', playlist_items='', **kwargs) -> Any:
+def downloader(
+    url='',
+    artist='',
+    album='',
+    playlist_items='',
+    strip_patterns=None,
+    strip_artist=False,
+    **kwargs,
+) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
     if playlist_items:
         opts['playlist_items'] = playlist_items
@@ -45,6 +53,13 @@ def downloader(url='', album='', playlist_items='', **kwargs) -> Any:
 
     os.chdir(directory)
 
+    if strip_artist:
+        pattern = ' *-? *{} *-? *'.format(artist)
+        if not strip_patterns:
+            strip_patterns = [pattern]
+        else:
+            strip_patterns.append(pattern)
+
     all_kwargs = {
         'url': url,
         'album': album,
@@ -52,6 +67,8 @@ def downloader(url='', album='', playlist_items='', **kwargs) -> Any:
         'download': download,
         'info_opts': info_opts,
         'download_opts': download_opts,
+        'artist': artist,
+        'strip_patterns': strip_patterns,
         **kwargs,
     }
     if info.get('extractor') == 'youtube':
@@ -63,7 +80,16 @@ def downloader(url='', album='', playlist_items='', **kwargs) -> Any:
         playlist(**all_kwargs)
 
 
-def no_chapters(url, artist, album, info, download, download_opts, strip_patterns, **kwargs) -> Any:
+def no_chapters(
+    url,
+    artist,
+    album,
+    info,
+    download,
+    download_opts,
+    strip_patterns,
+    **kwargs,
+) -> Any:
     """Single file, no chapters.
     """
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
@@ -90,11 +116,22 @@ def no_chapters(url, artist, album, info, download, download_opts, strip_pattern
         )
         try:
             os.rename(file, '{}-{}.mp3'.format(title, info['id']))
+            print('\n{}\n'.format(format_status((1, True, title))))
         except Exception:
             pass
 
 
-def chapters(url, artist, album, info, download, download_opts, remove_source_file, strip_patterns, **kwargs) -> Any:
+def chapters(
+    url,
+    artist,
+    album,
+    info,
+    download,
+    download_opts,
+    remove_chapters_source_file,
+    strip_patterns,
+    **kwargs,
+) -> Any:
     """Single file with chapters.
     """
     if download:
@@ -130,18 +167,27 @@ def chapters(url, artist, album, info, download, download_opts, remove_source_fi
         ):
             status.append((idx, True, title))
         else:
-            status.append((idx, False,title))
-    if remove_source_file:
+            status.append((idx, False, title))
+    if remove_chapters_source_file:
         try:
             os.remove(source_file)
         except Exception:
             pass
     print('\nplaylist built from single video with chapters: {}'.format(url))
-    print('\n{}\n'.format('\n'.join(format_status_chapters(s) for s in status)))
+    print('\n{}\n'.format('\n'.join(format_status(s) for s in status)))
 
 
 def playlist(
-    url, artist, album, info, download, info_opts, download_opts, strip_patterns, track_numbers, **kwargs,
+    url,
+    artist,
+    album,
+    info,
+    download,
+    info_opts,
+    download_opts,
+    track_numbers,
+    strip_patterns,
+    **kwargs,
 ) -> Any:
     tracks = parse_track_numbers(track_numbers)
     entries = info.get('entries')
@@ -174,15 +220,15 @@ def playlist(
                 os.rename(file, '{}-{}.mp3'.format(title, track_info['id']))
             except Exception:
                 pass
-    print('\n{}\n'.format('\n'.join(format_status(s) for s in status)))
+    print('\n{}\n'.format('\n'.join(format_status_with_url(s) for s in status)))
 
 
-def format_status_chapters(track: Tuple[int, bool, str]) -> str:
+def format_status(track: Tuple[int, bool, str]) -> str:
     num, success, name = track
     return '    '.join([str(num).rjust(5), '✔' if success else '✘', name])
 
 
-def format_status(track: Tuple[int, bool, str, str]) -> str:
+def format_status_with_url(track: Tuple[int, bool, str, str]) -> str:
     num, success, youtube_id, name = track
     return '    '.join([
         str(num).rjust(5), '✔' if success else '✘', 'https://www.youtube.com/watch?v={}'.format(youtube_id), name,

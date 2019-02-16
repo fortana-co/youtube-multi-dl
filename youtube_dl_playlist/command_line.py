@@ -1,7 +1,9 @@
-from typing import Any
 import sys
 import argparse
 import subprocess
+
+if sys.version_info.major < 3 or sys.version_info.minor < 5:
+    sys.exit('you need at least python3.5 to run youtube-dl-playlist\n\nmake sure you installed it with `pip3 install youtube-dl-playlist`')
 
 from .downloader import downloader
 
@@ -10,22 +12,24 @@ parser = argparse.ArgumentParser(description='Download a playlist from YouTube u
 
 # user must pass url, artist (album can be taken from playlist title)
 parser.add_argument('-u', '--url', required=True,
-                    help='URL of YouTube playlist')
+                    help='URL of YouTube playlist or video with chapters')
 parser.add_argument('-a', '--artist', required=True,
-                    help='Playlist artist(s)')
+                    help='Artist(s)')
 parser.add_argument('-A', '--album', default='',
-                    help='Playlist album(s), defaults to YouTube playlist name')
+                    help='Album(s), defaults to YouTube playlist or video name')
 parser.add_argument('-p', '--playlist-items', default='',
                     help='Playlist tracks to download; e.g. "1,3-5,7-9,11,12"')
 parser.add_argument('-t', '--track-numbers', default='',
                     help='Track numbers to assign to playlist items; must have same length as playlist items')
-parser.add_argument('-r', '--remove-source-file', action='store_true',
-                    help='Remove source file with chapters after download')
+parser.add_argument('-r', '--remove-chapters-source-file', action='store_true',
+                    help='For video with chapters, remove source file after download')
 parser.add_argument('-s', '--strip-patterns', type=str, nargs='+',
-                    help='Remove patterns from title')
+                    help='Remove patterns from title(s)')
+parser.add_argument('-S', '--strip-artist', action='store_true',
+                    help='Remove artist name from title(s)')
 
 
-def main() -> Any:
+def main():
     """The `console_scripts` entry point for youtube-dl-playlist. There's no need to pass
     arguments to this function, because `argparse` reads `sys.argv[1:]`.
 
@@ -38,7 +42,8 @@ def main() -> Any:
         'artist',
         'album',
         'playlist_items',
-        'remove_source_file',
+        'remove_chapters_source_file',
+        'strip_artist',
         'strip_patterns',
         'track_numbers',
     ]:
