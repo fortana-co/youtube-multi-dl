@@ -173,7 +173,8 @@ def chapters(
             os.remove(source_file)
         except Exception:
             pass
-    print('\nplaylist built from single video with chapters: {}'.format(url))
+    full_url = 'https://www.youtube.com/watch?v={}'.format(info['id'])
+    print('\nplaylist built from single video with chapters: {}'.format(full_url))
     print('\n{}\n'.format('\n'.join(format_status(s) for s in status)))
 
 
