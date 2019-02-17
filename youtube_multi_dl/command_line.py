@@ -3,7 +3,7 @@ import argparse
 import subprocess
 
 if sys.version_info.major < 3 or sys.version_info.minor < 5:
-    sys.exit('you need at least python3.5 to run youtube-dl-playlist\n\nmake sure you installed it with `pip3 install youtube-dl-playlist`')
+    sys.exit('you need at least python3.5 to run youtube-multi-dl\n\nmake sure you installed it with `pip3 install youtube-multi-dl`')
 
 from .downloader import downloader
 
@@ -30,7 +30,7 @@ parser.add_argument('-S', '--strip-artist', action='store_true',
 
 
 def main():
-    """The `console_scripts` entry point for youtube-dl-playlist. There's no need to pass
+    """The `console_scripts` entry point for youtube-multi-dl. There's no need to pass
     arguments to this function, because `argparse` reads `sys.argv[1:]`.
 
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
@@ -49,7 +49,7 @@ def main():
     ]:
         kwargs[name] = args.__getattribute__(name)
     if not subprocess.call(['which', 'ffmpeg']) == 0:
-        print("ffmpeg isn't installed! youtube-dl-playlist needs ffmpeg to convert video to audio...")
+        print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")
         print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
         print("osx: `brew install ffmpeg`")
         print("ubuntu: `sudo apt-get install ffmpeg`")

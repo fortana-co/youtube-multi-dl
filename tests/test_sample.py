@@ -1,5 +1,5 @@
 import unittest
-from youtube_dl_playlist import Downloader
+from youtube_multi_dl import Downloader
 
 
 class TestDownloader(unittest.TestCase):

@@ -1,4 +1,4 @@
-from youtube_dl_playlist.command_line import main
+from youtube_multi_dl.command_line import main
 
 
 if __name__ == '__main__':
