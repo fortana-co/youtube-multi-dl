@@ -1,86 +1,74 @@
-# youtube_dl_playlist
+# youtube-multi-dl
+![License](https://camo.githubusercontent.com/890acbdcb87868b382af9a4b1fac507b9659d9bf/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d626c75652e737667)
 
-__youtube_dl_playlist__ is a Python package designed to explain how to distribute packages via [PyPI]() (the Python Package Index) so they can be installed using `pip`.
+__youtube-multi-dl__ makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-video](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters). It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use.
 
-__No se recomienda su uso para fines ajenos a los descritos arriba__.
+It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl). It's built to be as simple as possible:
+
+~~~sh
+# download and label tracks 1-10 of this playlist by "Star Band de Dakar"
+youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM" -a "Star Band de Dakar" -p "1-10" -S
+
+# download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
+youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson" -S
+
+# download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
+youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders" -S
+~~~
 
 
 ## Installation
-~~~sh
-pip install youtube_dl_playlist
-~~~
+`pip3 install youtube-multi-dl`
+
+`youtube-multi-dl` requires Python 3. Use `pip3` to install it. If you don't have Python 3, you can install it with your package manager:
+
+- __macOS__: `brew install python`
+
+
+### Deps
+Like `youtube-dl`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org/). On most platforms, you can install FFmpeg using a package manager.
+
+- __macOS__: `brew install ffmpeg`
+- __Ubuntu__: `sudo apt install ffmpeg`
+
 
 ## Usage
-Instantiate a sample and do amazing shit.
-~~~py
-from youtube_dl_playlist import Downloader
-s = Downloader()
-print(s.name())
-~~~
+__youtube-multi-dl__ makes a folder with the album name and downloads songs into this folder. It makes the folder in your current working directory. This means you might want to `cd ~/Desktop` or something like that before running it.
+
+__youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to see a help message with all the args you can pass.
 
 
-## Tests
-~~~sh
-# from the project root
-python -m unittest discover tests -v
-~~~
+### Required Arguments
+- `url`: URL or ID of YouTube playlist or video with chapters (required)
+- `-a` ARTIST, `--artist` ARTIST
+
+
+### Optional Arguments
+- `-A` ALBUM, `--album` ALBUM
+- `-p` PLAYLIST_ITEMS, `--playlist-items` PLAYLIST_ITEMS: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
+- `-t` TRACK_NUMBERS, `--track-numbers` TRACK_NUMBERS: track numbers to assign to playlist items; must have same length as playlist items
+- `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
+- `-s` STRIP_PATTERNS [STRIP_PATTERNS ...], `--strip-patterns` STRIP_PATTERNS [STRIP_PATTERNS ...]: remove patterns from title(s)
+- `-S`, `--strip-artist`: remove artist name from title(s)
 
 
 ## Contributing
-If you want to improve __youtube_dl_playlist__, fork the repo and submit a pull request!
+Fork the repo and submit a PR. Create an issue if something is broke!
+
+
+### Development
+See `main.py` in the root of the repo? This script makes it easy to test the package. It ensures __youtube-multi-dl__ can be invoked from the command line, without going through the shim created by `setuptools` when the package is installed.
+
+For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders" -S`.
+
+
+### Wish List
+Some single-video albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so __youtube-multi-dl__ can split videos like this into individual songs, the way it does for videos with chapters?
+
 
 ## License
 This code is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 
-
-## How To
-
-El mejor tutorial acerca de PyPI que he encontrado [está aquí](http://peterdowns.com/posts/first-time-with-pypi.html), este tutorial reproduce partes de su contenido.
-
-La información oficial [está aquí](https://packaging.python.org/en/latest/distributing/).
-
-First, create accounts with <https://pypi.python.org/> and <https://testpypi.python.org/pypi>. Then create your `~.pypirc` file.
-
-`~/.pypirc`
-~~~
-[distutils]
-index-servers =
-  pypi
-  pypitest
-
-[pypi]
-repository=https://pypi.python.org/pypi
-username=<username>
-password=<password>
-
-[pypitest]
-repository=https://testpypi.python.org/pypi
-username=<username>
-password=<password>
-~~~
-
-
-Tag your release and upload it to GitHub.
-~~~sh
-# add a tag to a package so that package can be submitted to PyPI
-git tag <version> -m "Adds a versioning tag so that we can submit this to PyPI."
-
-git push --tags origin master
-# file is now available for download here
-# https://github.com/<user>/<repo>/tarball/<tag>
-~~~
-
-Submit your package to __pypitest__ first. Check that it works, then submit it to __pypi__.
-~~~sh
-# submit to pypi test server
-python setup.py register -r pypitest # register your package with PyPI
-python setup.py sdist upload -r pypitest # push a new version to PyPI
-pip install -i https://testpypi.python.org/pypi <package>
-
-# submit to pypi
-python setup.py register -r pypi
-python setup.py sdist upload -r pypi
-pip install <package>
-~~~
-
+## Thanks
+To the maintainers of __youtube-dl__, [Mutagen](https://github.com/quodlibet/mutagen) and __FFmpeg__, and to anyone that doesn't want every last song to disappear behind ads or a paywall.
