@@ -67,7 +67,7 @@ def downloader(
         strip_patterns = (strip_patterns or []) + patterns
 
     if len(urls) > 1:
-        multiple(url, artist, album, download, download_opts, strip_patterns)
+        multiple(urls, artist, album, download, info_opts, download_opts, strip_patterns)
     else:
         all_kwargs = {
             'url': url,
@@ -89,8 +89,36 @@ def downloader(
             playlist(**all_kwargs)
 
 
-def multiple(urls, artist, album, download, download_opts, strip_patterns) -> None:
-    pass
+def multiple(urls, artist, album, download, info_opts, download_opts, strip_patterns) -> None:
+    status = []
+    for i, url in enumerate(urls):
+        idx = i + 1
+
+        with youtube_dl.YoutubeDL(info_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        if not info:
+            status.append((idx, False, '', ''))
+            continue
+
+        if download:
+            with youtube_dl.YoutubeDL(download_opts) as ydl:
+                ydl.download([url])
+
+        title = strip(info['title'], strip_patterns)
+        for file in glob.glob('*{}.mp3'.format(info['id'])):
+            set_audio_id3(
+                file,
+                title=title,
+                artist=artist,
+                album=album,
+                tracknumber='{}/{}'.format(idx, len(urls)),
+            )
+            try:
+                os.rename(file, '{}-{}.mp3'.format(title, info['id']))
+            except Exception:
+                pass
+        status.append((idx, True, info['id'], info['title']))
+    print('\n{}\n'.format('\n'.join(format_status_with_url(s) for s in status)))
 
 
 def no_chapters(

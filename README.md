@@ -15,7 +15,7 @@ youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson" -S
 # download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
 youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders" -S
 
-# download this Lucinda Williams album from list of single-video URLs
+# download this Lucinda Williams album from a list of single-video URLs
 youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World" -S
 ~~~
 

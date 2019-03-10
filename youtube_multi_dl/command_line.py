@@ -4,16 +4,20 @@ import subprocess
 
 if sys.version_info.major < 3 or sys.version_info.minor < 5:
     sys.exit(
-        'you need at least python3.5 to run youtube-multi-dl\n\nmake sure you installed it with `pip3 install youtube-multi-dl`',
+        'you need at least python3.5 to run youtube-multi-dl\n\n'
+        'make sure you installed it with `pip3 install youtube-multi-dl`',
     )
 
-from .downloader import downloader
+from .downloader import downloader  # noqa
 
 parser = argparse.ArgumentParser(description='Download a playlist from YouTube using youtube-dl')
 
 # user must pass url, artist (album can be taken from playlist title)
 parser.add_argument(
-    'url', type=str, nargs='+', help='URL of YouTube playlist or video with chapters, or list of single-video URLs'
+    'url',
+    type=str,
+    nargs='+',
+    help='URL of YouTube playlist or video with chapters, or list of single-video URLs',
 )
 parser.add_argument('-a', '--artist', required=True, help='Artist(s)')
 parser.add_argument('-A', '--album', default='', help='Album(s), defaults to YouTube playlist or video name')

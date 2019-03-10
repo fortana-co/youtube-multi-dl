@@ -3,12 +3,12 @@ from setuptools import setup
 
 setup(
     name='youtube-multi-dl',
-    version='0.1.0',
+    version='0.2.0',
     description='Download and label albums and playlists from YouTube using youtube-dl',
     long_description='Check it out on GitHub',
     keywords='youtube youtube-dl mp3 download playlist album chapters file id3',
     url='https://github.com/fortana-co/youtube-multi-dl',
-    download_url='https://github.com/fortana-co/youtube-multi-dl/tarball/0.1.0',
+    download_url='https://github.com/fortana-co/youtube-multi-dl/tarball/0.2.0',
     author='kylebebak',
     author_email='kylebebak@gmail.com',
     license='MIT',
