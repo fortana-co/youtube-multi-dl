@@ -10,11 +10,11 @@ from mutagen.easyid3 import EasyID3
 
 
 def downloader(
-    urls,
+    urls: List[str],
     artist='',
     album='',
     playlist_items='',
-    strip_patterns=None,
+    strip_patterns: List[str] = None,
     strip_meta=False,
     **kwargs,
 ) -> Any:
@@ -31,18 +31,21 @@ def downloader(
             'preferredquality': '192',
         }],
     }
-    if len(urls) > 1:
-        return
 
-    url = urls[0]
-    with youtube_dl.YoutubeDL(info_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-    if not info:
-        sys.exit("couldn't get playlist info")
+    if len(urls) > 1:  # multiple single-video URLs
+        if not album:
+            sys.exit("if you pass a list of single-video URLs, you must also specify an album (-A, --album)")
+        directory = './{}'.format(album)
+    else:
+        url = urls[0]
+        with youtube_dl.YoutubeDL(info_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        if not info:
+            sys.exit("couldn't get playlist info")
+        album = album or info['title']
+        directory = './{}'.format(info['title'])
 
     download = True
-    album = album or info['title']
-    directory = './{}'.format(info['title'])
     try:
         os.makedirs(directory)
     except FileExistsError:
@@ -63,24 +66,31 @@ def downloader(
             patterns.append(' *{} *- *'.format(album))
         strip_patterns = (strip_patterns or []) + patterns
 
-    all_kwargs = {
-        'url': url,
-        'album': album,
-        'info': info,
-        'download': download,
-        'info_opts': info_opts,
-        'download_opts': download_opts,
-        'artist': artist,
-        'strip_patterns': strip_patterns,
-        **kwargs,
-    }
-    if info.get('extractor') == 'youtube':
-        if not info.get('chapters'):
-            no_chapters(**all_kwargs)
-        else:
-            chapters(**all_kwargs)
-    elif info.get('extractor') == 'youtube:playlist':
-        playlist(**all_kwargs)
+    if len(urls) > 1:
+        multiple(url, artist, album, download, download_opts, strip_patterns)
+    else:
+        all_kwargs = {
+            'url': url,
+            'album': album,
+            'info': info,
+            'download': download,
+            'info_opts': info_opts,
+            'download_opts': download_opts,
+            'artist': artist,
+            'strip_patterns': strip_patterns,
+            **kwargs,
+        }
+        if info.get('extractor') == 'youtube':
+            if not info.get('chapters'):
+                no_chapters(**all_kwargs)
+            else:
+                chapters(**all_kwargs)
+        elif info.get('extractor') == 'youtube:playlist':
+            playlist(**all_kwargs)
+
+
+def multiple(urls, artist, album, download, download_opts, strip_patterns) -> None:
+    pass
 
 
 def no_chapters(
@@ -92,7 +102,7 @@ def no_chapters(
     download_opts,
     strip_patterns,
     **kwargs,
-) -> Any:
+) -> None:
     """Single file, no chapters.
     """
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
@@ -134,7 +144,7 @@ def chapters(
     remove_chapters_source_file,
     strip_patterns,
     **kwargs,
-) -> Any:
+) -> None:
     """Single file with chapters.
     """
     if download:
@@ -192,7 +202,7 @@ def playlist(
     track_numbers,
     strip_patterns,
     **kwargs,
-) -> Any:
+) -> None:
     tracks = parse_track_numbers(track_numbers)
     entries = info.get('entries')
     if tracks and len(entries) != len(tracks):
