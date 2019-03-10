@@ -11,8 +11,8 @@ from .downloader import downloader
 parser = argparse.ArgumentParser(description='Download a playlist from YouTube using youtube-dl')
 
 # user must pass url, artist (album can be taken from playlist title)
-parser.add_argument('url',
-                    help='URL of YouTube playlist or video with chapters')
+parser.add_argument('url', type=str, nargs='+',
+                    help='URL of YouTube playlist or video with chapters, or list of single-video URLs')
 parser.add_argument('-a', '--artist', required=True,
                     help='Artist(s)')
 parser.add_argument('-A', '--album', default='',

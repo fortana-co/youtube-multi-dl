@@ -10,7 +10,7 @@ from mutagen.easyid3 import EasyID3
 
 
 def downloader(
-    url='',
+    url,
     artist='',
     album='',
     playlist_items='',
