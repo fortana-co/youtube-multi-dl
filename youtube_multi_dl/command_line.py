@@ -25,8 +25,8 @@ parser.add_argument('-r', '--remove-chapters-source-file', action='store_true',
                     help='For video with chapters, remove source file after download')
 parser.add_argument('-s', '--strip-patterns', type=str, nargs='+',
                     help='Remove patterns from title(s)')
-parser.add_argument('-S', '--strip-artist', action='store_true',
-                    help='Remove artist name from title(s)')
+parser.add_argument('-S', '--strip-meta', action='store_true',
+                    help='Remove artist and album names from title(s)')
 
 
 def main():
@@ -43,7 +43,7 @@ def main():
         'album',
         'playlist_items',
         'remove_chapters_source_file',
-        'strip_artist',
+        'strip_meta',
         'strip_patterns',
         'track_numbers',
     ]:

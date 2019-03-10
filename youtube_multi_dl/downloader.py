@@ -15,7 +15,7 @@ def downloader(
     album='',
     playlist_items='',
     strip_patterns=None,
-    strip_artist=False,
+    strip_meta=False,
     **kwargs,
 ) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
@@ -53,12 +53,11 @@ def downloader(
 
     os.chdir(directory)
 
-    if strip_artist:
-        pattern = ' *-? *{} *-? *'.format(artist)
-        if not strip_patterns:
-            strip_patterns = [pattern]
-        else:
-            strip_patterns.append(pattern)
+    if strip_meta:
+        patterns = [' *-? *{} *-? *'.format(artist)]
+        if album:
+            patterns.append(' *-? *{} *-? *'.format(album))
+        strip_patterns = (strip_patterns or []) + patterns
 
     all_kwargs = {
         'url': url,
