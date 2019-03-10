@@ -153,7 +153,7 @@ def chapters(
 
     split = True
     files = glob.glob('*{}.mp3'.format(info['id']))
-    if not(files):
+    if not (files):
         split = False
     source_file = files[0]
 
@@ -167,9 +167,7 @@ def chapters(
         title = clean_filename(strip(chapter.get('title') or str(idx), strip_patterns))
         file = '{}.mp3'.format(title)
         if split:
-            cmd = [
-                'ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file,
-            ]
+            cmd = ['ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file]
             subprocess.check_output(cmd)
         if set_audio_id3(
             file,
@@ -244,9 +242,14 @@ def format_status(track: Tuple[int, bool, str]) -> str:
 
 def format_status_with_url(track: Tuple[int, bool, str, str]) -> str:
     num, success, youtube_id, name = track
-    return '    '.join([
-        str(num).rjust(5), '✔' if success else '✘', 'https://www.youtube.com/watch?v={}'.format(youtube_id), name,
-    ])
+    return '    '.join(
+        [
+            str(num).rjust(5),
+            '✔' if success else '✘',
+            'https://www.youtube.com/watch?v={}'.format(youtube_id),
+            name,
+        ],
+    )
 
 
 def capture_input(prompt: str, *options) -> str:

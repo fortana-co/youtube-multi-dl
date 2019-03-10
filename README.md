@@ -65,6 +65,12 @@ See `main.py` in the root of the repo? This script makes it easy to test the pac
 For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders" -S`.
 
 
+### Style
+Uses [yapf](https://github.com/google/yapf). Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass yapf check.
+
+Run `pip3 install yapf` to install yapf, and run `yapf -i -r youtube_multi_dl` to format source files in place.
+
+
 ### Wish List
 Some single-video albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so __youtube-multi-dl__ can split videos like this into individual songs, the way it does for videos with chapters?
 
