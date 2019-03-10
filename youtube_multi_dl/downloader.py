@@ -10,7 +10,7 @@ from mutagen.easyid3 import EasyID3
 
 
 def downloader(
-    url,
+    urls,
     artist='',
     album='',
     playlist_items='',
@@ -31,7 +31,10 @@ def downloader(
             'preferredquality': '192',
         }],
     }
+    if len(urls) > 1:
+        return
 
+    url = urls[0]
     with youtube_dl.YoutubeDL(info_opts) as ydl:
         info = ydl.extract_info(url, download=False)
     if not info:
@@ -56,7 +59,8 @@ def downloader(
     if strip_meta:
         patterns = [' *-? *{} *-? *'.format(artist)]
         if album:
-            patterns.append(' *-? *{} *-? *'.format(album))
+            patterns.append(' *- *{} *'.format(album))
+            patterns.append(' *{} *- *'.format(album))
         strip_patterns = (strip_patterns or []) + patterns
 
     all_kwargs = {
