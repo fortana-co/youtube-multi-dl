@@ -1,7 +1,9 @@
 # youtube-multi-dl
 ![License](https://camo.githubusercontent.com/890acbdcb87868b382af9a4b1fac507b9659d9bf/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d626c75652e737667)
 
-__youtube-multi-dl__ makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-video](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters). It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use.
+__youtube-multi-dl__ makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-song](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters).
+
+It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use. If you pass `-S`, it strips artist and album names from song titles.
 
 It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl). It's built to be as simple as possible:
 
@@ -12,11 +14,11 @@ youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOY
 # download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
 youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson" -S
 
+# download this Lucinda Williams album from a list of single-song URLs/IDs
+youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World" -S
+
 # download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
 youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders" -S
-
-# download this Lucinda Williams album from a list of single-video URLs
-youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World" -S
 ~~~
 
 
@@ -42,7 +44,7 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 
 
 ### Required Arguments
-- `url`: URL or ID of YouTube playlist or video with chapters, or list of single-video URLs
+- `url`: URL or ID of YouTube playlist or video with chapters, or list of single-song URLs
 - `-a` ARTIST, `--artist` ARTIST
 
 
@@ -53,6 +55,12 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
 - `-s` STRIP_PATTERNS [STRIP_PATTERNS ...], `--strip-patterns` STRIP_PATTERNS [STRIP_PATTERNS ...]: remove patterns from title(s)
 - `-S`, `--strip-meta`: remove artist and album names from title(s)
+
+
+### File Names
+It might look like __youtube-multi-dl__ isn't doing a great job of cleaning file names. You pass `-S` but it doesn't strip the artist/album name! It leaves the YouTube video ID in there!
+
+This is how it's supposed to work; __youtube-multi-dl__ needs the meta info in the file name. What it actually cleans is the song's title (the __ID3 title tag__). This determines the name of the track in your music player.
 
 
 ## Contributing
@@ -72,7 +80,7 @@ Run `pip3 install yapf` to install yapf, and run `yapf -i -r youtube_multi_dl` t
 
 
 ### Wish List
-Some single-video albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so __youtube-multi-dl__ can split videos like this into individual songs, the way it does for videos with chapters?
+Some single-song albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so __youtube-multi-dl__ can split videos like this into individual songs, the way it does for videos with chapters?
 
 
 ## License

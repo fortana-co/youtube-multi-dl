@@ -12,12 +12,13 @@ from .downloader import downloader  # noqa
 
 parser = argparse.ArgumentParser(description='Download a playlist from YouTube using youtube-dl')
 
+parser.add_argument('-v', '--version', action='store_true', help='show version and exit')
 # user must pass url, artist (album can be taken from playlist title)
 parser.add_argument(
     'url',
     type=str,
     nargs='+',
-    help='URL of YouTube playlist or video with chapters, or list of single-video URLs',
+    help='URL of YouTube playlist or video with chapters, or list of single-song URLs',
 )
 parser.add_argument('-a', '--artist', required=True, help='Artist(s)')
 parser.add_argument('-A', '--album', default='', help='Album(s), defaults to YouTube playlist or video name')
@@ -44,6 +45,10 @@ def main():
 
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
+    if sys.argv[1] == '-v' or sys.argv[1] == '--version':
+        print('youtube-multi-dl version 0.2.1')
+        sys.exit(0)
+
     args = parser.parse_args()
     kwargs = {}
     for name in [

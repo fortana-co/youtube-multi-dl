@@ -32,9 +32,9 @@ def downloader(
         }],
     }
 
-    if len(urls) > 1:  # multiple single-video URLs
+    if len(urls) > 1:  # multiple single-song URLs
         if not album:
-            sys.exit("if you pass a list of single-video URLs, you must also specify an album (-A, --album)")
+            sys.exit("if you pass a list of single-song URLs, you must also specify an album (-A, --album)")
         directory = './{}'.format(album)
     else:
         url = urls[0]
