@@ -32,19 +32,17 @@ def downloader(
         }],
     }
 
-    url = ''
-    info: dict = {}
-    if len(urls) > 1:  # multiple single-song URLs
-        if not album:
-            sys.exit("if you pass a list of single-song URLs, you must also specify an album (-A, --album)")
-    else:
-        url = urls[0]
-        with youtube_dl.YoutubeDL(info_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        if not info:
-            sys.exit("couldn't get playlist info")
-        album = album or info['title']
+    url = urls[0]
+    with youtube_dl.YoutubeDL(info_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    if not info:
+        sys.exit("couldn't get info")
 
+    is_single_songs = info.get('extractor') == 'youtube' and not info.get('chapters')
+    if is_single_songs and not album:
+        sys.exit("if you pass single-song URL(s), you must also specify an album (-A, --album)")
+
+    album = album or info['title']
     directory = './{}'.format(album)
 
     download = True
@@ -52,7 +50,11 @@ def downloader(
         os.makedirs(directory)
     except FileExistsError:
         print('\nthe album directory {} already exists'.format(directory))
-        text = capture_input('(d)ownload again, (s)kip download but continue, (e)xit: ', 'd', 's', 'e')
+        text = ''
+        if is_single_songs:
+            text = capture_input('(d)ownload again, (e)xit: ', 'd', 'e')
+        else:
+            text = capture_input('(d)ownload again, (s)kip download but continue, (e)xit: ', 'd', 's', 'e')
         if text == 's':
             download = False
         elif text == 'e':
@@ -70,6 +72,7 @@ def downloader(
 
     all_kwargs = {
         'url': url,
+        'urls': urls,
         'album': album,
         'info': info,
         'download': download,
@@ -79,20 +82,37 @@ def downloader(
         'strip_patterns': strip_patterns,
         **kwargs,
     }
-    if len(urls) > 1:
-        all_kwargs['urls'] = urls
-        return multiple(**all_kwargs)
 
     if info.get('extractor') == 'youtube':
         if not info.get('chapters'):
-            no_chapters(**all_kwargs)
+            single_songs(**all_kwargs)
         else:
             chapters(**all_kwargs)
     elif info.get('extractor') == 'youtube:playlist':
         playlist(**all_kwargs)
 
 
-def multiple(urls, artist, album, download, info_opts, download_opts, track_numbers, strip_patterns, **kwargs) -> None:
+def single_songs(
+    urls: List[str],
+    artist,
+    album,
+    info_opts,
+    download_opts,
+    track_numbers,
+    strip_patterns,
+    **kwargs,
+) -> None:
+    if len(urls) == 1:
+        print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
+        text = capture_input('(y)es, (n)o: ', 'y', 'n')
+        if text == 'n':
+            try:
+                os.rmdir(os.getcwd())
+            except Exception:
+                pass
+            print('\nexiting...')
+            sys.exit(0)
+
     status = []
     tracks = parse_track_numbers(track_numbers)
     if tracks and len(urls) != len(tracks):
@@ -107,7 +127,7 @@ def multiple(urls, artist, album, download, info_opts, download_opts, track_numb
             status.append((idx, False, '', ''))
             continue
 
-        if download:
+        if not glob.glob('*{}.mp3'.format(info['id'])):  # don't redownload file
             with youtube_dl.YoutubeDL(download_opts) as ydl:
                 ydl.download([url])
 
@@ -126,54 +146,6 @@ def multiple(urls, artist, album, download, info_opts, download_opts, track_numb
                 pass
         status.append((idx, True, info['id'], info['title']))
     print('\n{}\n'.format('\n'.join(format_status_with_url(s) for s in status)))
-
-
-def no_chapters(
-    url,
-    artist,
-    album,
-    info,
-    download,
-    download_opts,
-    track_numbers,
-    strip_patterns,
-    **kwargs,
-) -> None:
-    """Single file, no chapters.
-    """
-    tracks = parse_track_numbers(track_numbers)
-    if len(tracks) != 1:
-        sys.exit('you can only pass one track for a single video, but you passed {}'.format(track_numbers))
-    track = tracks[0] if tracks else 1
-
-    print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
-    text = capture_input('(y)es, (n)o: ', 'y', 'n')
-    if text == 'n':
-        try:
-            os.rmdir(os.getcwd())
-        except Exception as e:
-            print(e)
-        print('\nexiting...')
-        sys.exit(0)
-
-    if download:
-        with youtube_dl.YoutubeDL(download_opts) as ydl:
-            ydl.download([url])
-
-    title = strip(info['title'], strip_patterns)
-    for file in glob.glob('*{}.mp3'.format(info['id'])):
-        set_audio_id3(
-            file,
-            title=title,
-            artist=artist,
-            album=album,
-            tracknumber='{}/{}'.format(track, track),
-        )
-        try:
-            os.rename(file, '{}-{}.mp3'.format(title, info['id']))
-            print('\n{}\n'.format(format_status((track, True, title))))
-        except Exception:
-            pass
 
 
 def chapters(

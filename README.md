@@ -49,7 +49,7 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 
 
 ### Optional Arguments
-- `-A` ALBUM, `--album` ALBUM
+- `-A` ALBUM, `--album` ALBUM (required for single-song URLs)
 - `-p` PLAYLIST_ITEMS, `--playlist-items` PLAYLIST_ITEMS: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
 - `-t` TRACK_NUMBERS, `--track-numbers` TRACK_NUMBERS: track numbers to assign to playlist items; must have same length as playlist items
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
@@ -64,7 +64,7 @@ This is how it's supposed to work; __youtube-multi-dl__ needs the meta info in t
 
 
 ## Contributing
-Fork the repo and submit a PR. Create an issue if something is broke!
+Fork the repo and submit a PR. Create an issue if something is broken!
 
 
 ### Development

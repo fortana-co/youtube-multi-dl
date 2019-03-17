@@ -46,7 +46,7 @@ def main():
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
     if len(sys.argv) > 1 and (sys.argv[1] == '-v' or sys.argv[1] == '--version'):
-        print('youtube-multi-dl version 0.2.1')
+        print('youtube-multi-dl version 0.3.0')
         sys.exit(0)
     if len(sys.argv) == 1:
         sys.argv.append('-h')
