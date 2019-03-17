@@ -32,10 +32,11 @@ def downloader(
         }],
     }
 
+    url = ''
+    info: dict = {}
     if len(urls) > 1:  # multiple single-song URLs
         if not album:
             sys.exit("if you pass a list of single-song URLs, you must also specify an album (-A, --album)")
-        directory = './{}'.format(album)
     else:
         url = urls[0]
         with youtube_dl.YoutubeDL(info_opts) as ydl:
@@ -43,7 +44,8 @@ def downloader(
         if not info:
             sys.exit("couldn't get playlist info")
         album = album or info['title']
-        directory = './{}'.format(info['title'])
+
+    directory = './{}'.format(album)
 
     download = True
     try:
@@ -66,33 +68,38 @@ def downloader(
             patterns.append(' *{} *- *'.format(album))
         strip_patterns = (strip_patterns or []) + patterns
 
+    all_kwargs = {
+        'url': url,
+        'album': album,
+        'info': info,
+        'download': download,
+        'info_opts': info_opts,
+        'download_opts': download_opts,
+        'artist': artist,
+        'strip_patterns': strip_patterns,
+        **kwargs,
+    }
     if len(urls) > 1:
-        multiple(urls, artist, album, download, info_opts, download_opts, strip_patterns)
-    else:
-        all_kwargs = {
-            'url': url,
-            'album': album,
-            'info': info,
-            'download': download,
-            'info_opts': info_opts,
-            'download_opts': download_opts,
-            'artist': artist,
-            'strip_patterns': strip_patterns,
-            **kwargs,
-        }
-        if info.get('extractor') == 'youtube':
-            if not info.get('chapters'):
-                no_chapters(**all_kwargs)
-            else:
-                chapters(**all_kwargs)
-        elif info.get('extractor') == 'youtube:playlist':
-            playlist(**all_kwargs)
+        all_kwargs['urls'] = urls
+        return multiple(**all_kwargs)
+
+    if info.get('extractor') == 'youtube':
+        if not info.get('chapters'):
+            no_chapters(**all_kwargs)
+        else:
+            chapters(**all_kwargs)
+    elif info.get('extractor') == 'youtube:playlist':
+        playlist(**all_kwargs)
 
 
-def multiple(urls, artist, album, download, info_opts, download_opts, strip_patterns) -> None:
+def multiple(urls, artist, album, download, info_opts, download_opts, track_numbers, strip_patterns, **kwargs) -> None:
     status = []
+    tracks = parse_track_numbers(track_numbers)
+    if tracks and len(urls) != len(tracks):
+        sys.exit('you passed {} track(s) and {} url(s)'.format(len(tracks), len(urls)))
+
     for i, url in enumerate(urls):
-        idx = i + 1
+        idx = tracks[i] if tracks else i + 1
 
         with youtube_dl.YoutubeDL(info_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -128,11 +135,17 @@ def no_chapters(
     info,
     download,
     download_opts,
+    track_numbers,
     strip_patterns,
     **kwargs,
 ) -> None:
     """Single file, no chapters.
     """
+    tracks = parse_track_numbers(track_numbers)
+    if len(tracks) != 1:
+        sys.exit('you can only pass one track for a single video, but you passed {}'.format(track_numbers))
+    track = tracks[0] if tracks else 1
+
     print('\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?')
     text = capture_input('(y)es, (n)o: ', 'y', 'n')
     if text == 'n':
@@ -154,10 +167,11 @@ def no_chapters(
             title=title,
             artist=artist,
             album=album,
+            tracknumber='{}/{}'.format(track, track),
         )
         try:
             os.rename(file, '{}-{}.mp3'.format(title, info['id']))
-            print('\n{}\n'.format(format_status((1, True, title))))
+            print('\n{}\n'.format(format_status((track, True, title))))
         except Exception:
             pass
 
