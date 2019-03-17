@@ -5,8 +5,8 @@ import sys
 import glob
 import subprocess
 
-import youtube_dl
-from mutagen.easyid3 import EasyID3
+import youtube_dl  # type: ignore
+from mutagen.easyid3 import EasyID3  # type: ignore
 
 
 def downloader(

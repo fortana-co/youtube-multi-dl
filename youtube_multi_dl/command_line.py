@@ -64,7 +64,7 @@ def main():
     ]:
         kwargs[name] = args.__getattribute__(name)
     kwargs['urls'] = args.__getattribute__('url')
-    if not subprocess.call(['which', 'ffmpeg']) == 0:
+    if subprocess.call(['which', 'ffmpeg']) != 0:
         print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")
         print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
         print("osx: `brew install ffmpeg`")

@@ -4,3 +4,4 @@
 
 yapf -d -r youtube_multi_dl
 flake8 --exclude '*.pyc' youtube_multi_dl/*
+mypy youtube_multi_dl
