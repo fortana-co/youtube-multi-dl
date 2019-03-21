@@ -49,11 +49,11 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 
 
 ### Optional Arguments
-- `-A` ALBUM, `--album` ALBUM (required for single-song URLs)
-- `-p` PLAYLIST_ITEMS, `--playlist-items` PLAYLIST_ITEMS: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
-- `-t` TRACK_NUMBERS, `--track-numbers` TRACK_NUMBERS: track numbers to assign to playlist items; must have same length as playlist items
+- `-A`, `--album` ALBUM (required for single-song URLs)
+- `-p`, `--playlist-items` PLAYLIST_ITEMS: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
+- `-t`, `--track-numbers` TRACK_NUMBERS: track numbers to assign to playlist items; must have same length as playlist items
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
-- `-s` STRIP_PATTERNS [STRIP_PATTERNS ...], `--strip-patterns` STRIP_PATTERNS [STRIP_PATTERNS ...]: remove patterns from title(s)
+- `-s`, `--strip-patterns` STRIP_PATTERNS [STRIP_PATTERNS ...]: remove patterns from title(s)
 - `-S`, `--strip-meta`: remove artist and album names from title(s)
 
 
