@@ -9,16 +9,16 @@ It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl
 
 ~~~sh
 # download and label tracks 1-10 of this playlist by "Star Band de Dakar"
-youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM" -a "Star Band de Dakar" -p "1-10" -S
+youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM" -a "Star Band de Dakar" -p "1-10"
 
 # download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
-youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson" -S
+youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson"
 
 # download this Lucinda Williams album from a list of single-song URLs/IDs
-youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World" -S
+youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World"
 
 # download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
-youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders" -S
+youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 ~~~
 
 
@@ -49,16 +49,16 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 
 
 ### Optional Arguments
-- `-A`, `--album` ALBUM (required for single-song URLs)
-- `-p`, `--playlist-items` PLAYLIST_ITEMS: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
-- `-t`, `--track-numbers` TRACK_NUMBERS: track numbers to assign to playlist items; must have same length as playlist items
+- `-A`, `--album` __ALBUM__ (required for single-song URLs)
+- `-p`, `--playlist-items` __PLAYLIST_ITEMS__: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
+- `-t`, `--track-numbers` __TRACK_NUMBERS__: track numbers to assign to playlist items; must have same length as playlist items
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
-- `-s`, `--strip-patterns` STRIP_PATTERNS [STRIP_PATTERNS ...]: remove patterns from title(s)
-- `-S`, `--strip-meta`: remove artist and album names from title(s)
+- `-s`, `--strip-patterns` __STRIP_PATTERNS [STRIP_PATTERNS ...]__: remove patterns from title(s)
+- `--no-strip-meta`: don't remove artist and album names from title(s)
 
 
 ### File Names
-It might look like __youtube-multi-dl__ isn't doing a great job of cleaning file names. You pass `-S` but it doesn't strip the artist/album name! It leaves the YouTube video ID in there!
+It might look like __youtube-multi-dl__ isn't doing a great job of cleaning file names. It doesn't remove the artist/album name, and it leaves the YouTube video ID in there!
 
 This is how it's supposed to work; __youtube-multi-dl__ needs the meta info in the file name. What it actually cleans is the song's title (the __ID3 title tag__). This determines the name of the track in your music player.
 
@@ -70,7 +70,7 @@ Fork the repo and submit a PR. Create an issue if something is broken!
 ### Development
 See `main.py` in the root of the repo? This script makes it easy to test the package. It ensures __youtube-multi-dl__ can be invoked from the command line, without going through the shim created by `setuptools` when the package is installed.
 
-For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders" -S`.
+For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
 
 
 ### Style

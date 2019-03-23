@@ -36,7 +36,7 @@ parser.add_argument(
     help='For video with chapters, remove source file after download',
 )
 parser.add_argument('-s', '--strip-patterns', type=str, nargs='+', help='Remove patterns from title(s)')
-parser.add_argument('-S', '--strip-meta', action='store_true', help='Remove artist and album names from title(s)')
+parser.add_argument('--no-strip-meta', action='store_true', help='Don\'t Remove artist and album names from title(s)')
 
 
 def main():
@@ -58,12 +58,13 @@ def main():
         'album',
         'playlist_items',
         'remove_chapters_source_file',
-        'strip_meta',
         'strip_patterns',
         'track_numbers',
     ]:
         kwargs[name] = args.__getattribute__(name)
     kwargs['urls'] = args.__getattribute__('url')
+    kwargs['strip_meta'] = not args.__getattribute__('no_strip_meta')
+
     if subprocess.call(['which', 'ffmpeg']) != 0:
         print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")
         print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")

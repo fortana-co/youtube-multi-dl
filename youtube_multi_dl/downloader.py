@@ -15,7 +15,7 @@ def downloader(
     album='',
     playlist_items='',
     strip_patterns: List[str] = None,
-    strip_meta=False,
+    strip_meta=True,
     **kwargs,
 ) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
