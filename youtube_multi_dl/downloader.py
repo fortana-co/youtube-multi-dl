@@ -16,6 +16,8 @@ def downloader(
     playlist_items='',
     strip_patterns: List[str] = None,
     strip_meta=True,
+    audio_format='',
+    audio_quality='',
     **kwargs,
 ) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
@@ -23,14 +25,10 @@ def downloader(
         opts['playlist_items'] = playlist_items
 
     info_opts = {**opts, 'dump_single_json': True, 'extract_flat': True}
-    download_opts = {
-        **opts,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
+    postprocessor = {'key': 'FFmpegExtractAudio', 'preferredcodec': audio_format}
+    if audio_quality:
+        postprocessor['preferredquality'] = audio_quality
+    download_opts = {**opts, 'postprocessors': [postprocessor]}
 
     url = urls[0]
     with youtube_dl.YoutubeDL(info_opts) as ydl:
@@ -127,12 +125,13 @@ def single_songs(
             status.append((idx, False, '', ''))
             continue
 
-        if not glob.glob('*{}.mp3'.format(info['id'])):  # don't redownload file
+        if not glob.glob('*{}.*'.format(info['id'])):  # don't redownload file
             with youtube_dl.YoutubeDL(download_opts) as ydl:
                 ydl.download([url])
 
         title = strip(info['title'], strip_patterns)
-        for file in glob.glob('*{}.mp3'.format(info['id'])):
+        for file in glob.glob('*{}.*'.format(info['id'])):
+            _, extension = os.path.splitext(file)
             set_audio_id3(
                 file,
                 title=title,
@@ -141,7 +140,7 @@ def single_songs(
                 tracknumber='{}/{}'.format(idx, len(urls)),
             )
             try:
-                os.rename(file, '{}-{}.mp3'.format(title, info['id']))
+                os.rename(file, '{}-{}.{}'.format(title, info['id'], extension))
             except Exception:
                 pass
         status.append((idx, True, info['id'], info['title']))
@@ -165,11 +164,10 @@ def chapters(
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
-    split = True
-    files = glob.glob('*{}.mp3'.format(info['id']))
-    if not (files):
-        split = False
-    source_file = files[0]
+    source_file = ''
+    files = glob.glob('*{}.*'.format(info['id']))
+    if files:
+        source_file = files[0]
 
     chapters = info.get('chapters')
 
@@ -179,8 +177,11 @@ def chapters(
         start_time = chapter['start_time']
         end_time = chapter['end_time']
         title = clean_filename(strip(chapter.get('title') or str(idx), strip_patterns))
-        file = '{}.mp3'.format(title)
-        if split:
+
+        file = (glob.glob('*{}.*'.format(title)) or [''])[0]
+        if source_file:
+            _, extension = os.path.splitext(source_file)
+            file = '{}.{}'.format(title, extension)
             cmd = ['ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file]
             subprocess.check_output(cmd)
         if set_audio_id3(
@@ -193,7 +194,7 @@ def chapters(
             status.append((idx, True, title))
         else:
             status.append((idx, False, title))
-    if remove_chapters_source_file:
+    if remove_chapters_source_file and source_file:
         try:
             os.remove(source_file)
         except Exception:
@@ -234,7 +235,8 @@ def playlist(
 
         title = strip(track_info['title'], strip_patterns)
         status.append((idx, True, track_info['id'], title))
-        for file in glob.glob('*{}.mp3'.format(track_info['id'])):
+        for file in glob.glob('*{}.*'.format(track_info['id'])):
+            _, extension = os.path.splitext(file)
             set_audio_id3(
                 file,
                 title=title,
@@ -243,7 +245,7 @@ def playlist(
                 tracknumber='{}/{}'.format(idx, len(entries)),
             )
             try:
-                os.rename(file, '{}-{}.mp3'.format(title, track_info['id']))
+                os.rename(file, '{}-{}.{}'.format(title, track_info['id'], extension))
             except Exception:
                 pass
     print('\n{}\n'.format('\n'.join(format_status_with_url(s) for s in status)))

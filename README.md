@@ -55,6 +55,8 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
 - `-s`, `--strip-patterns` __STRIP_PATTERNS [STRIP_PATTERNS ...]__: remove patterns from title(s)
 - `--no-strip-meta`: don't remove artist and album names from title(s)
+- `-f`, `--audio-format` __AUDIO_FORMAT__: one of ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'best'); default 'mp3'; 'best' optimizes for audio quality, but may not be the format you want
+- `-q`, `--audio-quality` __AUDIO_FORMAT__: audio quality; insert a value between 0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 192)
 
 
 ### File Names
@@ -72,9 +74,11 @@ See `main.py` in the root of the repo? This script makes it easy to test the pac
 
 For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
 
+Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass yapf, flake8 and mypy checks.
+
 
 ### Style
-Uses [yapf](https://github.com/google/yapf). Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass yapf check.
+Uses [yapf](https://github.com/google/yapf).
 
 Run `pip3 install yapf` to install yapf, and run `yapf -i -r youtube_multi_dl` to format source files in place.
 
