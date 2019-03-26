@@ -129,8 +129,10 @@ def single_songs(
             with youtube_dl.YoutubeDL(download_opts) as ydl:
                 ydl.download([url])
         else:
-            print('\nfound matching file for {}... if you wish to download and process file again, '
-                  'delete this file, or delete album directory\n'.format(info['title']))
+            print(
+                '\nfound matching file for {}... if you wish to download and process file again, '
+                'delete this file, or delete album directory\n'.format(info['title']),
+            )
 
         title = strip(info['title'], strip_patterns)
         for file in glob.glob('*{}.*'.format(info['id'])):
@@ -143,7 +145,7 @@ def single_songs(
                 tracknumber='{}/{}'.format(idx, len(urls)),
             )
             try:
-                os.rename(file, '{}-{}.{}'.format(title, info['id'], extension))
+                os.rename(file, '{}-{}{}'.format(title, info['id'], extension))
             except Exception:
                 pass
         status.append((idx, True, info['id'], info['title']))
@@ -184,7 +186,7 @@ def chapters(
         file = (glob.glob('*{}.*'.format(title)) or [''])[0]
         if source_file:
             _, extension = os.path.splitext(source_file)
-            file = '{}.{}'.format(title, extension)
+            file = '{}{}'.format(title, extension)
             cmd = ['ffmpeg', '-i', source_file, '-acodec', 'copy', '-ss', str(start_time), '-to', str(end_time), file]
             subprocess.check_output(cmd)
         if set_audio_id3(
@@ -248,7 +250,7 @@ def playlist(
                 tracknumber='{}/{}'.format(idx, len(entries)),
             )
             try:
-                os.rename(file, '{}-{}.{}'.format(title, track_info['id'], extension))
+                os.rename(file, '{}-{}{}'.format(title, track_info['id'], extension))
             except Exception:
                 pass
     print('\n{}\n'.format('\n'.join(format_status_with_url(s) for s in status)))

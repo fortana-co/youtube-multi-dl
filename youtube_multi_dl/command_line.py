@@ -38,7 +38,7 @@ parser.add_argument(
     help='For video with chapters, remove source file after download',
 )
 parser.add_argument('-s', '--strip-patterns', type=str, nargs='+', help='Remove patterns from title(s)')
-parser.add_argument('--no-strip-meta', action='store_true', help='Don\'t Remove artist and album names from title(s)')
+parser.add_argument('--no-strip-meta', action='store_true', help='Don\'t remove artist and album names from title(s)')
 parser.add_argument(
     '-f',
     '--audio-format',
