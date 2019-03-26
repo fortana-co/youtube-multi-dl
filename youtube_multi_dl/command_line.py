@@ -53,7 +53,7 @@ parser.add_argument(
     type=str,
     default='',
     help="Audio quality; insert a value between "
-    "0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 192)",
+    "0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)",
 )
 
 
@@ -89,7 +89,7 @@ def main():
         print('invalid audio format: must be one of {}'.format(audio_formats))
         sys.exit()
     if kwargs['audio_format'] != 'best' and not kwargs['audio_quality']:
-        kwargs['audio_quality'] = '192'
+        kwargs['audio_quality'] = '160'
 
     if subprocess.call(['which', 'ffmpeg']) != 0:
         print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")

@@ -56,7 +56,7 @@ __youtube-multi-dl__ tries to be a good CLI tool. Run `youtube-multi-dl -h` to s
 - `-s`, `--strip-patterns` __STRIP_PATTERNS [STRIP_PATTERNS ...]__: remove patterns from title(s)
 - `--no-strip-meta`: don't remove artist and album names from title(s)
 - `-f`, `--audio-format` __AUDIO_FORMAT__: one of ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'best'); default 'mp3'; 'best' optimizes for audio quality, but may not be the format you want
-- `-q`, `--audio-quality` __AUDIO_FORMAT__: audio quality; insert a value between 0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 192)
+- `-q`, `--audio-quality` __AUDIO_FORMAT__: audio quality; insert a value between 0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)
 
 
 ### File Names
