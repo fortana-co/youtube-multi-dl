@@ -128,6 +128,9 @@ def single_songs(
         if not glob.glob('*{}.*'.format(info['id'])):  # don't redownload file
             with youtube_dl.YoutubeDL(download_opts) as ydl:
                 ydl.download([url])
+        else:
+            print('\nfound matching file for {}... if you wish to download and process file again, '
+                  'delete this file, or delete album directory\n'.format(info['title']))
 
         title = strip(info['title'], strip_patterns)
         for file in glob.glob('*{}.*'.format(info['id'])):
