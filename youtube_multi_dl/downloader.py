@@ -2,6 +2,8 @@ from typing import Any, List, Dict, Tuple
 import os
 import re
 import sys
+import csv
+import json
 import glob
 import subprocess
 
@@ -18,6 +20,7 @@ def downloader(
     strip_meta=True,
     audio_format='',
     audio_quality='',
+    chapters_file='',
     **kwargs,
 ) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
@@ -36,7 +39,7 @@ def downloader(
     if not info:
         sys.exit("couldn't get info")
 
-    is_single_songs = info.get('extractor') == 'youtube' and not info.get('chapters')
+    is_single_songs = info.get('extractor') == 'youtube' and not info.get('chapters') and not chapters_file
     if is_single_songs and not album:
         sys.exit("if you pass single-song URL(s), you must also specify an album (-A, --album)")
 
@@ -78,11 +81,12 @@ def downloader(
         'download_opts': download_opts,
         'artist': artist,
         'strip_patterns': strip_patterns,
+        'chapters_file': chapters_file,
         **kwargs,
     }
 
     if info.get('extractor') == 'youtube':
-        if not info.get('chapters'):
+        if not info.get('chapters') and not chapters_file:
             single_songs(**all_kwargs)
         else:
             chapters(**all_kwargs)
@@ -161,6 +165,7 @@ def chapters(
     download_opts,
     remove_chapters_source_file,
     strip_patterns,
+    chapters_file,
     **kwargs,
 ) -> None:
     """Single file with chapters.
@@ -174,14 +179,38 @@ def chapters(
     if files:
         source_file = files[0]
 
-    chapters = info.get('chapters')
+    chapters: List[Dict] = []
+    if chapters_file:
+        read = False
+        with open(chapters_file) as file_handle:
+            try:
+                chapters = json.load(file_handle)
+                read = True
+            except json.JSONDecodeError:
+                print('\nfailed to read {} as JSON, trying as CSV\n'.format(chapters_file))
+        if not read:
+            chapters = read_as_csv(chapters_file)
+    else:
+        chapters = info.get('chapters')
 
     status = []
     for i, chapter in enumerate(chapters):
         idx = i + 1
-        start_time = chapter['start_time']
-        end_time = chapter['end_time']
+
         title = clean_filename(strip(chapter.get('title') or str(idx), strip_patterns))
+
+        start_time = chapter.get('start_time')
+        if start_time is None:
+            sys.exit('chapter {} has no start_time'.format(chapter))
+
+        end_time = chapter.get('end_time')
+        if end_time is None:
+            if idx < len(chapters):
+                end_time = chapters[idx].get('start_time')
+                if end_time is None:
+                    sys.exit('chapter {} has no start_time'.format(chapters[idx]))
+            else:
+                end_time = 1000000
 
         file = (glob.glob('*{}.*'.format(title)) or [''])[0]
         if source_file:
@@ -296,6 +325,21 @@ def set_audio_id3(file: str, **kwargs) -> bool:
 
 def clean_filename(file: str) -> str:
     return file.replace('/', '').replace(chr(92), '').replace(chr(0), '')
+
+
+def read_as_csv(file: str) -> List[Dict]:
+    with open(file) as file_handle:
+        reader = csv.reader(file_handle, delimiter=',')
+        chapters = [
+            {
+                'title': row[0],
+                'start_time': row[1],
+                'end_time': row[2] if len(row) >= 3 else None,
+            } for row in reader
+        ]
+        if len(chapters) == 0:
+            sys.exit('failed to read {} as CSV, exiting...'.format(file))
+        return chapters
 
 
 def strip(s: str, patterns: List[str] = None) -> str:

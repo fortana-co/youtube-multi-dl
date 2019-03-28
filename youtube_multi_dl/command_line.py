@@ -44,17 +44,18 @@ parser.add_argument(
     '--audio-format',
     type=str,
     default='mp3',
-    help="Audio format; one of {}; default 'mp3'; "
-    "'best' optimizes for audio quality, but may not be the format you want".format(audio_formats),
+    help='Audio format; one of {}; default "mp3"; '
+    '"best" optimizes for audio quality, but may not be the format you want'.format(audio_formats),
 )
 parser.add_argument(
     '-q',
     '--audio-quality',
     type=str,
     default='',
-    help="Audio quality; insert a value between "
-    "0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)",
+    help='Audio quality; insert a value between '
+    '0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)',
 )
+parser.add_argument('--chapters-file', type=str, default='', help='JSON or CSV file with chapters info')
 
 
 def main():
@@ -80,6 +81,7 @@ def main():
         'track_numbers',
         'audio_format',
         'audio_quality',
+        'chapters_file',
     ]:
         kwargs[name] = args.__getattribute__(name)
     kwargs['urls'] = args.__getattribute__('url')
