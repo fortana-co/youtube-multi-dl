@@ -21,6 +21,7 @@ def downloader(
     audio_format='',
     audio_quality='',
     chapters_file='',
+    output_path='',
     **kwargs,
 ) -> Any:
     opts: Dict[str, Any] = {'ignoreerrors': True}
@@ -45,6 +46,12 @@ def downloader(
 
     album = album or info['title']
     directory = './{}'.format(album)
+
+    if output_path:
+        try:
+            os.chdir(os.path.expanduser(output_path))
+        except:
+            sys.exit('failed to cd into {}, exiting...'.format(output_path))
 
     download = True
     try:

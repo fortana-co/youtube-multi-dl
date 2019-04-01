@@ -56,6 +56,7 @@ parser.add_argument(
     '0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)',
 )
 parser.add_argument('--chapters-file', type=str, default='', help='JSON or CSV file with chapters info')
+parser.add_argument('-o', '--output-path', type=str, default='', help='Directory in which album/playlist directory is created')
 
 
 def main():
@@ -82,6 +83,7 @@ def main():
         'audio_format',
         'audio_quality',
         'chapters_file',
+        'output_path',
     ]:
         kwargs[name] = args.__getattribute__(name)
     kwargs['urls'] = args.__getattribute__('url')
