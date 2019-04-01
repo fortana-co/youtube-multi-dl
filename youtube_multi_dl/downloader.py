@@ -200,10 +200,10 @@ def chapters(
         title = clean_filename(strip(chapter.get('title') or str(idx), strip_patterns))
 
         start_time = chapter.get('start_time')
-        if start_time is None:
+        if start_time is None or start_time == '':
             if i > 0:
                 start_time = chapters[i - 1].get('end_time')
-                if start_time is None:
+                if start_time is None or start_time == '':
                     sys.exit(
                         'chapter {} has no start_time, and chapter {} has no end_time'.format(chapter, chapters[i - 1]),
                     )
@@ -211,10 +211,10 @@ def chapters(
                 start_time = 0
 
         end_time = chapter.get('end_time')
-        if end_time is None:
+        if end_time is None or end_time == '':
             if i < len(chapters) - 1:
                 end_time = chapters[i + 1].get('start_time')
-                if end_time is None:
+                if end_time is None or end_time == '':
                     sys.exit(
                         'chapter {} has no end_time, and chapter {} has no start_time'.format(chapter, chapters[i + 1]),
                     )
