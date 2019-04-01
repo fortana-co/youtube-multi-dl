@@ -56,7 +56,13 @@ parser.add_argument(
     '0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)',
 )
 parser.add_argument('--chapters-file', type=str, default='', help='JSON or CSV file with chapters info')
-parser.add_argument('-o', '--output-path', type=str, default='', help='Directory in which album/playlist directory is created')
+parser.add_argument(
+    '-o',
+    '--output-path',
+    type=str,
+    default='',
+    help='Directory in which album/playlist directory is created',
+)
 
 
 def main():
@@ -66,7 +72,7 @@ def main():
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
     if len(sys.argv) > 1 and (sys.argv[1] == '-v' or sys.argv[1] == '--version'):
-        print('youtube-multi-dl version 1.0.0')
+        print('youtube-multi-dl version 1.1.0')
         sys.exit(0)
     if len(sys.argv) == 1:
         sys.argv.append('-h')

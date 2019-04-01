@@ -40,6 +40,11 @@ def downloader(
     if not info:
         sys.exit("couldn't get info")
 
+    if chapters_file:
+        chapters_file = os.path.abspath(os.path.expanduser(chapters_file))
+        if not os.path.exists(chapters_file):
+            sys.exit('no chapters file at {}, exiting...'.format(chapters_file))
+
     is_single_songs = info.get('extractor') == 'youtube' and not info.get('chapters') and not chapters_file
     if is_single_songs and not album:
         sys.exit("if you pass single-song URL(s), you must also specify an album (-A, --album)")
@@ -50,7 +55,7 @@ def downloader(
     if output_path:
         try:
             os.chdir(os.path.expanduser(output_path))
-        except:
+        except Exception:
             sys.exit('failed to cd into {}, exiting...'.format(output_path))
 
     download = True
