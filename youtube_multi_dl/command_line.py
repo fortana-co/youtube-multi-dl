@@ -10,6 +10,8 @@ if sys.version_info.major < 3 or sys.version_info.minor < 5:
 
 from .downloader import downloader  # noqa
 
+your_version = '1.2.0'
+
 audio_formats = ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'best')
 
 parser = argparse.ArgumentParser(description='Download a playlist from YouTube using youtube-dl')
@@ -65,6 +67,32 @@ parser.add_argument(
 )
 
 
+def check_version():
+    import urllib.request
+    import json
+    from distutils.version import LooseVersion
+
+    try:
+        response = urllib.request.urlopen('https://pypi.python.org/pypi/youtube-multi-dl/json')
+        text = response.read()
+        info = json.loads(text.decode('utf-8'))
+
+        versions = info['releases'].keys() or ['0.0.0']
+        latest_version = max(LooseVersion(v) for v in versions)
+        if latest_version > LooseVersion(your_version):
+            print(
+                '\n####\nthe latest version of youtube-multi-dl is {}, but you have {}'.format(
+                    latest_version.vstring,
+                    your_version,
+                ),
+            )
+            print('run `pip3 install --upgrade youtube-multi-dl` to upgrade\n####')
+            print('\nsee release notes here: https://github.com/fortana-co/youtube-multi-dl/blob/master/RELEASES.md')
+    except Exception:
+        pass
+    sys.exit(0)
+
+
 def main():
     """The `console_scripts` entry point for youtube-multi-dl. There's no need to pass
     arguments to this function, because `argparse` reads `sys.argv[1:]`.
@@ -72,7 +100,8 @@ def main():
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
     if len(sys.argv) > 1 and (sys.argv[1] == '-v' or sys.argv[1] == '--version'):
-        print('youtube-multi-dl version 1.1.0')
+        print('youtube-multi-dl version {}'.format(your_version))
+        check_version()
         sys.exit(0)
     if len(sys.argv) == 1:
         sys.argv.append('-h')
@@ -112,3 +141,5 @@ def main():
         downloader(**kwargs)
     except KeyboardInterrupt:
         sys.exit()
+
+    check_version()
