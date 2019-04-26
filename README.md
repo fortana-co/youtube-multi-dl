@@ -36,6 +36,10 @@ Like `youtube-dl`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org
 - __macOS__: `brew install ffmpeg`
 - __Ubuntu__: `sudo apt install ffmpeg`
 
+`youtube-multi-dl` depends on `youtube-dl`, which is installed automatically when you run `pip3 install youtube-multi-dl`.
+
+It's worth nothing that `youtube-dl` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip3 install --upgrade youtube-dl` to upgrade `youtube-dl` to the latest version.
+
 
 ## Usage
 __youtube-multi-dl__ makes a folder with the album name and downloads songs into this folder. It makes the folder in your current working directory. This means you might want to `cd ~/Desktop` or something like that before running it.

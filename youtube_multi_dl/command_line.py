@@ -10,7 +10,7 @@ if sys.version_info.major < 3 or sys.version_info.minor < 5:
 
 from .downloader import downloader  # noqa
 
-your_version = '1.2.0'
+your_version = '1.2.1'
 
 audio_formats = ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'best')
 
@@ -67,7 +67,7 @@ parser.add_argument(
 )
 
 
-def check_version():
+def check_version(always_show_version=False):
     import urllib.request
     import json
     from distutils.version import LooseVersion
@@ -88,6 +88,8 @@ def check_version():
             )
             print('run `pip3 install --upgrade youtube-multi-dl` to upgrade\n####')
             print('\nsee release notes here: https://github.com/fortana-co/youtube-multi-dl/blob/master/RELEASES.md')
+        elif always_show_version:
+            print("latest version is {}, you're up to date!".format(latest_version))
     except Exception:
         pass
     sys.exit(0)
@@ -101,7 +103,7 @@ def main():
     """
     if len(sys.argv) > 1 and (sys.argv[1] == '-v' or sys.argv[1] == '--version'):
         print('youtube-multi-dl version {}'.format(your_version))
-        check_version()
+        check_version(always_show_version=True)
         sys.exit(0)
     if len(sys.argv) == 1:
         sys.argv.append('-h')

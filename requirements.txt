@@ -1,2 +1,2 @@
-youtube-dl==2019.2.8
-mutagen==1.42.0
+youtube-dl>=2019.04.24
+mutagen>=1.42.0,<2
