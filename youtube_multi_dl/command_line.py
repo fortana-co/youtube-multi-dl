@@ -1,6 +1,9 @@
+from typing import Union
 import sys
 import argparse
 import subprocess
+import youtube_dl  # type: ignore
+from distutils.version import LooseVersion
 
 if sys.version_info.major < 3 or sys.version_info.minor < 5:
     sys.exit(
@@ -67,35 +70,54 @@ parser.add_argument(
 )
 
 
-def check_version(always_show_version=False):
+def latest_version(package_info_url: str) -> Union[None, LooseVersion]:
     import urllib.request
     import json
-    from distutils.version import LooseVersion
 
     try:
-        response = urllib.request.urlopen('https://pypi.python.org/pypi/youtube-multi-dl/json')
+        response = urllib.request.urlopen(package_info_url)
         text = response.read()
         info = json.loads(text.decode('utf-8'))
 
         versions = info['releases'].keys() or ['0.0.0']
-        latest_version = max(LooseVersion(v) for v in versions)
-        if latest_version > LooseVersion(your_version):
+        return max(LooseVersion(v) for v in versions)
+    except Exception:
+        return None
+
+
+def print_version(always_show_version: bool = True) -> None:
+    version = latest_version('https://pypi.python.org/pypi/youtube-multi-dl/json')
+
+    if version is not None:
+        if version > LooseVersion(your_version):
             print(
                 '\n####\nthe latest version of youtube-multi-dl is {}, but you have {}'.format(
-                    latest_version.vstring,
+                    version.vstring,
                     your_version,
                 ),
             )
             print('run `pip3 install --upgrade youtube-multi-dl` to upgrade\n####')
             print('\nsee release notes here: https://github.com/fortana-co/youtube-multi-dl/blob/master/RELEASES.md')
         elif always_show_version:
-            print("latest version is {}, you're up to date!".format(latest_version))
-    except Exception:
-        pass
-    sys.exit(0)
+            print("latest version is {}, you're up to date!".format(version))
 
 
-def main():
+def print_ydl_version(always_show_version: bool = True) -> None:
+    version = latest_version('https://pypi.python.org/pypi/youtube-dl/json')
+    if version is not None:
+        if version > LooseVersion(youtube_dl.version.__version__):
+            print(
+                '\n####\nthe latest version of youtube-dl is {}, but you have {}'.format(
+                    version.vstring,
+                    youtube_dl.version.__version__,
+                ),
+            )
+            print('you should upgrade youtube-dl')
+        elif always_show_version:
+            print("latest youtube-dl version is {}, you're up to date!".format(version))
+
+
+def main() -> None:
     """The `console_scripts` entry point for youtube-multi-dl. There's no need to pass
     arguments to this function, because `argparse` reads `sys.argv[1:]`.
 
@@ -103,7 +125,10 @@ def main():
     """
     if len(sys.argv) > 1 and (sys.argv[1] == '-v' or sys.argv[1] == '--version'):
         print('youtube-multi-dl version {}'.format(your_version))
-        check_version(always_show_version=True)
+        print_version()
+        print('\nyoutube-dl version {}'.format(youtube_dl.version.__version__))
+        print_ydl_version()
+
         sys.exit(0)
     if len(sys.argv) == 1:
         sys.argv.append('-h')
@@ -144,4 +169,5 @@ def main():
     except KeyboardInterrupt:
         sys.exit()
 
-    check_version()
+    print_version(False)
+    print_ydl_version(False)
