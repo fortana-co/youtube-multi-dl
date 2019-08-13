@@ -80,13 +80,13 @@ See `main.py` in the root of the repo? This script makes it easy to test the pac
 
 For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
 
-Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass yapf, flake8 and mypy checks.
+Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass black, flake8 and mypy checks.
 
 
 ### Style
-Uses [yapf](https://github.com/google/yapf).
+Uses [black](https://github.com/psf/black).
 
-Run `pip3 install yapf` to install yapf, and run `yapf -i -r youtube_multi_dl` to format source files in place.
+Run `pip3 install black` to install black, and run `black youtube_multi_dl` to format source files in place.
 
 
 ### Wish List
