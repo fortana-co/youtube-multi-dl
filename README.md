@@ -3,7 +3,7 @@
 
 __youtube-multi-dl__ makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-song](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters).
 
-It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use. If you pass `-S`, it strips artist and album names from song titles.
+It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use. It strips artist and album names from song titles.
 
 It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl). It's built to be as simple as possible:
 
