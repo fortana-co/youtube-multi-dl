@@ -1,3 +1,7 @@
+## 1.3.2
+- Ensure `strip` doesn't ever leave us with an empty file name
+
+
 ## 1.3.1
 - Checks `youtube-dl` version as well as `youtube-multi-dl` version after running `youtube-multi-dl`, or when running `youtube-multi-dl -v`.
 

@@ -13,7 +13,7 @@ if sys.version_info.major < 3 or sys.version_info.minor < 5:
 
 from .downloader import downloader  # noqa
 
-your_version = "1.3.1"
+your_version = "1.3.2"
 
 audio_formats = ("aac", "flac", "mp3", "m4a", "opus", "vorbis", "wav", "best")
 

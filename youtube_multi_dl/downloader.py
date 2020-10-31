@@ -143,7 +143,7 @@ def single_songs(
                 "delete this file, or delete album directory\n".format(info["title"])
             )
 
-        title = strip(info["title"], strip_patterns)
+        title = strip(info["title"], strip_patterns) or info["title"]
         for file in glob.glob("*{}.*".format(info["id"])):
             _, extension = os.path.splitext(file)
             set_audio_id3(file, title=title, artist=artist, album=album, tracknumber="{}/{}".format(idx, len(urls)))
@@ -167,8 +167,8 @@ def chapters(
     chapters_file,
     **kwargs,
 ) -> None:
-    """Single file with chapters.
-    """
+    """Single file with chapters."""
+
     if download:
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
@@ -196,7 +196,8 @@ def chapters(
     for i, chapter in enumerate(chapters):
         idx = i + 1
 
-        title = clean_filename(strip(chapter.get("title") or str(idx), strip_patterns))
+        raw_title = chapter.get("title") or str(idx)
+        title = clean_filename(strip(raw_title, strip_patterns) or raw_title)
 
         start_time = chapter.get("start_time")
         if start_time is None or start_time == "":
@@ -260,7 +261,7 @@ def playlist(
             status.append((idx, False, entry["id"], entry.get("title", "")))
             continue
 
-        title = strip(track_info["title"], strip_patterns)
+        title = strip(track_info["title"], strip_patterns) or track_info["title"]
         status.append((idx, True, track_info["id"], title))
         for file in glob.glob("*{}.*".format(track_info["id"])):
             _, extension = os.path.splitext(file)
