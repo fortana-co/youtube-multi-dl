@@ -13,10 +13,10 @@ It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl
 youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM" -a "Star Band de Dakar" -p "1-10"
 
 # download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
-youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" -A "Nilsson Schmilsson"
+youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" --album "Nilsson Schmilsson"
 
 # download this Lucinda Williams album from a list of single-song URLs/IDs
-youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" -A "Sweet Old World"
+youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" --album "Sweet Old World"
 
 # download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
 youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
@@ -54,7 +54,7 @@ It's worth nothing that `youtube-dl` occasionally "breaks", for example because 
 
 ### Optional Arguments
 
-- `-A`, `--album` **ALBUM** (required for single-song URLs)
+- `--album` **ALBUM** (required for single-song URLs)
 - `-p`, `--playlist-items` **PLAYLIST_ITEMS**: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
 - `-t`, `--track-numbers` **TRACK_NUMBERS**: track numbers to assign to playlist items; must have same length as playlist items
 - `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download

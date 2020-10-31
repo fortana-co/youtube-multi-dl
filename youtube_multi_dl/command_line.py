@@ -25,7 +25,7 @@ parser.add_argument(
     "url", type=str, nargs="+", help="URL of YouTube playlist or video with chapters, or list of single-song URLs"
 )
 parser.add_argument("-a", "--artist", required=True, help="Artist(s)")
-parser.add_argument("-A", "--album", default="", help="Album(s), defaults to YouTube playlist or video name")
+parser.add_argument("--album", default="", help="Album(s), defaults to YouTube playlist or video name")
 parser.add_argument("-p", "--playlist-items", default="", help='Playlist tracks to download; e.g. "1,3-5,7-9,11,12"')
 parser.add_argument(
     "-t",

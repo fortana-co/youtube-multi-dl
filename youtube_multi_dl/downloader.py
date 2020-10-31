@@ -47,7 +47,7 @@ def downloader(
 
     is_single_songs = info.get("extractor") == "youtube" and not info.get("chapters") and not chapters_file
     if is_single_songs and not album:
-        sys.exit("if you pass single-song URL(s), you must also specify an album (-A, --album)")
+        sys.exit("if you pass single-song URL(s), you must also specify an album (--album)")
 
     album = album or info["title"]
     directory = "./{}".format(album)
