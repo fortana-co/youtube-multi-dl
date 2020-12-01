@@ -102,8 +102,9 @@ def downloader(
             single_songs(**all_kwargs)
         else:
             chapters(**all_kwargs)
-    print("extractor:", info.get("extractor"), ":: downloading playlist")
-    playlist(**all_kwargs)
+    else:
+        print("extractor:", info.get("extractor"), ":: downloading playlist")
+        playlist(**all_kwargs)
 
 
 def single_songs(
