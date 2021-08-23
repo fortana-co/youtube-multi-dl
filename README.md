@@ -93,6 +93,15 @@ Run `pip3 install black` to install black, and run `black youtube_multi_dl` to f
 
 Some single-song albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so **youtube-multi-dl** can split videos like this into individual songs, the way it does for videos with chapters?
 
+### Release/Deploy to PyPI
+
+```sh
+python setup.py sdist
+twine upload -r pypi dist/*
+# or, to upload specific version
+twine upload -r pypi dist/<version>
+```
+
 ## License
 
 This code is licensed under the [MIT License](https://opensource.org/licenses/MIT).
