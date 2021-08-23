@@ -1,3 +1,7 @@
+## 1.3.5
+- Adapt to breaking change in youtube-dl with `extract_flat` argument.
+
+
 ## 1.3.4
 - Adapt to breaking change in youtube-dl with `info["extractor"]`.
 

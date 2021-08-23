@@ -28,7 +28,7 @@ def downloader(
     if playlist_items:
         opts["playlist_items"] = playlist_items
 
-    info_opts = {**opts, "dump_single_json": True, "extract_flat": True}
+    info_opts = {**opts, "dump_single_json": True}
     postprocessor = {"key": "FFmpegExtractAudio", "preferredcodec": audio_format}
     if audio_quality:
         postprocessor["preferredquality"] = audio_quality
