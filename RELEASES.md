@@ -1,3 +1,7 @@
+## 2.0.0
+- Switch to `yt-dlp` because `youtube-dl` hasn't been maintained for last 5 months.
+
+
 ## 1.3.5
 - Adapt to breaking change in youtube-dl with `extract_flat` argument.
 

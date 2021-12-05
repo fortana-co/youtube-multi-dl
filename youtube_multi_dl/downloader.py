@@ -7,7 +7,7 @@ import json
 import glob
 import subprocess
 
-import youtube_dl  # type: ignore
+import yt_dlp as youtube_dl  # type: ignore
 from mutagen.easyid3 import EasyID3  # type: ignore
 
 
@@ -257,10 +257,15 @@ def playlist(
     for i, entry in enumerate(entries):
         idx = tracks[i] if tracks else i + 1
         with youtube_dl.YoutubeDL(info_opts) as ydl:
-            track_info = ydl.extract_info(entry["id"], download=False)
-        if track_info is None:
-            status.append((idx, False, entry["id"], entry.get("title", "")))
-            continue
+            if entry is None:
+                track_info = None
+                status.append((idx, False, "", ""))
+                continue
+            else:
+                track_info = ydl.extract_info(entry["id"], download=False)
+                if track_info is None:
+                    status.append((idx, False, entry["id"], entry.get("title", "")))
+                    continue
 
         title = strip(track_info["title"], strip_patterns) or track_info["title"]
         status.append((idx, True, track_info["id"], title))

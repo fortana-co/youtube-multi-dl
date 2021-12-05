@@ -13,11 +13,11 @@ if sys.version_info.major < 3 or sys.version_info.minor < 5:
 
 from .downloader import downloader  # noqa
 
-your_version = "1.3.5"
+your_version = "2.0.0"
 
 audio_formats = ("aac", "flac", "mp3", "m4a", "opus", "vorbis", "wav", "best")
 
-parser = argparse.ArgumentParser(description="Download a playlist from YouTube using youtube-dl")
+parser = argparse.ArgumentParser(description="Download a playlist from YouTube using yt-dlp")
 
 parser.add_argument("-v", "--version", action="store_true", help="show version and exit")
 # user must pass url, artist (album can be taken from playlist title)
@@ -95,17 +95,17 @@ def print_version(always_show_version: bool = True) -> None:
 
 
 def print_ydl_version(always_show_version: bool = True) -> None:
-    version = latest_version("https://pypi.python.org/pypi/youtube-dl/json")
+    version = latest_version("https://pypi.python.org/pypi/yt-dlp/json")
     if version is not None:
         if version > LooseVersion(youtube_dl.version.__version__):
             print(
-                "\n####\nthe latest version of youtube-dl is {}, but you have {}".format(
+                "\n####\nthe latest version of yt-dlp is {}, but you have {}".format(
                     version.vstring, youtube_dl.version.__version__
                 )
             )
-            print("you should upgrade youtube-dl")
+            print("you should upgrade yt-dlp")
         elif always_show_version:
-            print("latest youtube-dl version is {}, you're up to date!".format(version))
+            print("latest yt-dlp version is {}, you're up to date!".format(version))
 
 
 def main() -> None:
@@ -117,7 +117,7 @@ def main() -> None:
     if len(sys.argv) > 1 and (sys.argv[1] == "-v" or sys.argv[1] == "--version"):
         print("youtube-multi-dl version {}".format(your_version))
         print_version()
-        print("\nyoutube-dl version {}".format(youtube_dl.version.__version__))
+        print("\nyt-dlp version {}".format(youtube_dl.version.__version__))
         print_ydl_version()
 
         sys.exit(0)

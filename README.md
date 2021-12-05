@@ -6,7 +6,7 @@
 
 It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use. It strips artist and album names from song titles.
 
-It's a wrapper around the amazing [youtube-dl](https://github.com/rg3/youtube-dl). It's built to be as simple as possible:
+It's a wrapper around the amazing [yl-dlp](https://github.com/yt-dlp/yt-dlp). It's built to be as simple as possible:
 
 ```sh
 # download and label tracks 1-10 of this playlist by "Star Band de Dakar"
@@ -32,14 +32,14 @@ youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 
 ### Deps
 
-Like `youtube-dl`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org/). On most platforms, you can install FFmpeg using a package manager.
+Like `yt-dlp`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org/). On most platforms, you can install FFmpeg using a package manager.
 
 - **macOS**: `brew install ffmpeg`
 - **Ubuntu**: `sudo apt install ffmpeg`
 
-`youtube-multi-dl` depends on `youtube-dl`, which is installed automatically when you run `pip3 install youtube-multi-dl`.
+`youtube-multi-dl` depends on `yt-dlp`, which is installed automatically when you run `pip3 install youtube-multi-dl`.
 
-It's worth nothing that `youtube-dl` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip3 install --upgrade youtube-dl` to upgrade `youtube-dl` to the latest version.
+It's worth nothing that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip3 install --upgrade yt-dlp` to upgrade `yt-dlp` to the latest version.
 
 ## Usage
 
@@ -108,4 +108,4 @@ This code is licensed under the [MIT License](https://opensource.org/licenses/MI
 
 ## Thanks
 
-To the maintainers of **youtube-dl**, [Mutagen](https://github.com/quodlibet/mutagen) and **FFmpeg**, and to anyone who doesn't want every last song to disappear behind ads or a paywall.
+To the maintainers of **yt-dlp**, [Mutagen](https://github.com/quodlibet/mutagen) and **FFmpeg**, and to anyone who doesn't want every last song to disappear behind ads or a paywall.
