@@ -2,6 +2,7 @@
 
 # run from root of repo: `cd .git/hooks && ln -s -f ../../pre-push`
 
-black --check youtube_multi_dl
-flake8 --exclude '*.pyc' youtube_multi_dl/*
-mypy youtube_multi_dl
+isort --check .
+black --check .
+flake8 --exclude '*.pyc' .
+pyright

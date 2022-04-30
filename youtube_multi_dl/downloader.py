@@ -1,22 +1,24 @@
-from typing import Any, List, Dict, Tuple
+from __future__ import annotations
+
+import csv
+import glob
+import json
 import os
 import re
-import sys
-import csv
-import json
-import glob
 import subprocess
+import sys
+from typing import Any
 
 import yt_dlp as youtube_dl  # type: ignore
 from mutagen.easyid3 import EasyID3  # type: ignore
 
 
 def downloader(
-    urls: List[str],
+    urls: list[str],
     artist="",
     album="",
     playlist_items="",
-    strip_patterns: List[str] = None,
+    strip_patterns: list[str] | None = None,
     strip_meta=True,
     audio_format="",
     audio_quality="",
@@ -24,7 +26,7 @@ def downloader(
     output_path="",
     **kwargs,
 ) -> Any:
-    opts: Dict[str, Any] = {"ignoreerrors": True}
+    opts: dict[str, Any] = {"ignoreerrors": True}
     if playlist_items:
         opts["playlist_items"] = playlist_items
 
@@ -108,7 +110,7 @@ def downloader(
 
 
 def single_songs(
-    urls: List[str], artist, album, info_opts, download_opts, track_numbers, strip_patterns, **kwargs
+    urls: list[str], artist, album, info_opts, download_opts, track_numbers, strip_patterns, **kwargs
 ) -> None:
     if len(urls) == 1:
         print("\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?")
@@ -179,7 +181,7 @@ def chapters(
     if files:
         source_file = files[0]
 
-    chapters: List[Dict] = []
+    chapters: list[dict] = []
     if chapters_file:
         read = False
         with open(chapters_file) as file_handle:
@@ -279,12 +281,12 @@ def playlist(
     print("\n{}\n".format("\n".join(format_status_with_url(s) for s in status)))
 
 
-def format_status(track: Tuple[int, bool, str]) -> str:
+def format_status(track: tuple[int, bool, str]) -> str:
     num, success, name = track
     return "    ".join([str(num).rjust(5), "✔" if success else "✘", name])
 
 
-def format_status_with_url(track: Tuple[int, bool, str, str]) -> str:
+def format_status_with_url(track: tuple[int, bool, str, str]) -> str:
     num, success, youtube_id, name = track
     return "    ".join(
         [str(num).rjust(5), "✔" if success else "✘", "https://www.youtube.com/watch?v={}".format(youtube_id), name]
@@ -316,7 +318,7 @@ def clean_filename(file: str) -> str:
     return file.replace("/", "").replace(chr(92), "").replace(chr(0), "")
 
 
-def read_as_csv(file: str) -> List[Dict]:
+def read_as_csv(file: str) -> list[dict]:
     with open(file) as file_handle:
         reader = csv.reader(file_handle, delimiter=",")
         chapters = [
@@ -327,7 +329,7 @@ def read_as_csv(file: str) -> List[Dict]:
         return chapters
 
 
-def strip(s: str, patterns: List[str] = None) -> str:
+def strip(s: str, patterns: list[str] | None = None) -> str:
     if not patterns:
         return s
     for pattern in patterns:
@@ -335,8 +337,8 @@ def strip(s: str, patterns: List[str] = None) -> str:
     return s
 
 
-def parse_track_numbers(s: str) -> List[int]:
-    tracks: List[int] = []
+def parse_track_numbers(s: str) -> list[int]:
+    tracks: list[int] = []
     try:
         s = s.replace(" ", "")
         if not s:

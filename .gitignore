@@ -9,6 +9,7 @@ __pycache__/
 *.so
 *~
 MANIFEST
+.python-version
 
 # due to using tox and pytest
 .tox

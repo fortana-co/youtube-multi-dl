@@ -1,13 +1,14 @@
-from typing import Union
-import sys
 import argparse
 import subprocess
-import youtube_dl  # type: ignore
+import sys
 from distutils.version import LooseVersion
+from typing import Union
 
-if sys.version_info.major < 3 or sys.version_info.minor < 5:
+import youtube_dl  # type: ignore
+
+if sys.version_info.major < 3 or sys.version_info.minor < 8:
     sys.exit(
-        "you need at least python3.5 to run youtube-multi-dl\n\n"
+        "you need at least python3.8 to run youtube-multi-dl\n\n"
         "make sure you installed it with `pip3 install youtube-multi-dl`"
     )
 
@@ -63,9 +64,9 @@ parser.add_argument(
 )
 
 
-def latest_version(package_info_url: str) -> Union[None, LooseVersion]:
-    import urllib.request
+def latest_version(package_info_url: str) -> Union[LooseVersion, None]:
     import json
+    import urllib.request
 
     try:
         response = urllib.request.urlopen(package_info_url)

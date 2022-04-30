@@ -81,7 +81,7 @@ See `main.py` in the root of the repo? This script makes it easy to test the pac
 
 For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
 
-Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass black, flake8 and mypy checks.
+Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass black, flake8 and pyright checks.
 
 ### Style
 
