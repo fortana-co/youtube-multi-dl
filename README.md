@@ -4,21 +4,21 @@
 
 **youtube-multi-dl** makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-song](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters).
 
-It gives them ID3 tags so they're correctly grouped and ordered, and ready for whatever music player you use. It strips artist and album names from song titles.
+It tags them (title, artist, album, track number) so they're correctly grouped and ordered in whatever music player you use, cleans up the song titles, and gives files clean names. Output is [Opus](https://opus-codec.org/) by default (excellent quality at small sizes, and copied straight from YouTube's stream without re-encoding when possible) or mp3.
 
-It's a wrapper around the amazing [yl-dlp](https://github.com/yt-dlp/yt-dlp). It's built to be as simple as possible:
+It's a wrapper around the amazing [yt-dlp](https://github.com/yt-dlp/yt-dlp), built to be simple to use from a shell, a script, or an AI agent — it prints a single JSON object describing what it did. It's built to be as simple as possible:
 
 ```sh
-# download and label tracks 1-10 of this playlist by "Star Band de Dakar"
+# Download and label tracks 1-10 of this playlist by "Star Band de Dakar"
 youtube-multi-dl "https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM" -a "Star Band de Dakar" -p "1-10"
 
-# download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
+# Download "Nilsson Schmilsson" from a single vid, split it by chapters, and label each song
 youtube-multi-dl eTYushgUR00 -a "Harry Nilsson" --album "Nilsson Schmilsson"
 
-# download this Lucinda Williams album from a list of single-song URLs/IDs
+# Download this Lucinda Williams album from a list of single-song URLs/IDs
 youtube-multi-dl vWyXoGUdj4U 9R_dkP2duog qAJ8OCqe0v4 qWJCu3d6EX0 dPr0Iyh0z60 4VMUjcQ2ggs haUHiHVTvtg IOCPe_ff2RE ihuPM-xiCqY pjYxBxGSNnY HrSEeNE_Uzw cpP11qYuhg8 -a "Lucinda Williams" --album "Sweet Old World"
 
-# download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
+# Download this Pharoah Sanders album from a single vid, split it by chapters, and label each song; youtube-multi-dl guesses at the album name from the video metadata
 youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 ```
 
@@ -28,44 +28,67 @@ youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 
 ### Deps
 
-Like `yt-dlp`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org/). On most platforms, you can install FFmpeg using a package manager.
+`youtube-multi-dl` needs two system binaries, plus `yt-dlp` (installed automatically with `yt-dlp[default]`, which also pulls in [`yt-dlp-ejs`](https://github.com/yt-dlp/ejs)):
 
-- **macOS**: `brew install ffmpeg`
-- **Ubuntu**: `sudo apt install ffmpeg`
+- **[FFmpeg](https://www.ffmpeg.org/)** (which includes `ffprobe`) — to convert and split audio.
+  - **macOS**: `brew install ffmpeg` · **Ubuntu**: `sudo apt install ffmpeg`
+- **A JavaScript runtime** — modern YouTube requires one for extraction. [Deno](https://deno.com/) is recommended (Node also works).
+  - **macOS**: `brew install deno` · **Ubuntu**: [see Deno install docs](https://docs.deno.com/runtime/getting_started/installation/)
 
-`youtube-multi-dl` depends on `yt-dlp`, which is installed automatically when you run `pip install youtube-multi-dl`.
+If a required binary is missing, `youtube-multi-dl` tells you (with an `error.code` of `NO_FFMPEG` or `NO_JS_RUNTIME`) instead of failing cryptically.
 
-It's worth nothing that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip install --upgrade yt-dlp` to upgrade `yt-dlp` to the latest version.
+It's worth noting that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip install --upgrade "yt-dlp[default]"` to upgrade `yt-dlp`.
+
+## What it does that plain yt-dlp doesn't
+
+`yt-dlp` can extract audio, embed metadata, and split by chapters on its own. `youtube-multi-dl` is a focused convenience layer on top of it that adds:
+
+- **Custom-timestamp splitting.** Split a single "full album" video at boundaries you supply in a JSON/CSV `--chapters-file` — useful when the tracklist is only in the description and there are no real YouTube chapters. yt-dlp can only split by chapters that already exist.
+- **Albums from a list of single-song URLs**, tagged with a shared album and sequential track numbers, in one command.
+- **Opinionated one-liner defaults**: makes an album folder, cleans song titles (strips the artist/album out), tags everything, and gives files clean, ordered names — from just `-a "Artist"`.
+- **Automatic mode detection**: you don't tell it whether the URL is a playlist, a chaptered video, or single songs — it figures it out. (It also auto-splits a single video that *does* have chapters, with no extra flag.)
+- **Agent-friendly output**: one JSON object on stdout, a stable error/exit-code contract, and idempotent re-runs.
 
 ## Usage
 
-**youtube-multi-dl** makes a folder with the album name and downloads songs into this folder. It makes the folder in your current working directory. This means you might want to `cd ~/Desktop` or something like that before running it.
+**youtube-multi-dl** downloads tagged tracks into an `<artist>/<album>/` folder, created inside your current directory (or the `-o` path) — so you can browse your music by artist on disk. Run `youtube-multi-dl -h` for the full help.
 
-**youtube-multi-dl** tries to be a good CLI tool. Run `youtube-multi-dl -h` to see a help message with all the args you can pass.
+It prints **one JSON object to stdout** (logs go to stderr), so `youtube-multi-dl … 2>/dev/null | jq` gives you clean JSON. Re-runs are **idempotent** — tracks already present (matched by an embedded `youtube_video_id` tag) are skipped. Exit code is `0` on success, `2` if some tracks failed, `1` on a fatal error.
 
 ### Required Arguments
 
-- `url`: URL or ID of YouTube playlist or video with chapters, or list of single-song URLs
+- `url`: URL or ID of a YouTube playlist, a video with chapters, or one or more single-song URLs
 - `-a` ARTIST, `--artist` ARTIST
 
 ### Optional Arguments
 
-- `--album` **ALBUM** (required for single-song URLs)
-- `-p`, `--playlist-items` **PLAYLIST_ITEMS**: playlist tracks to download; e.g. "1,3-5,7-9,11,12"
-- `-t`, `--track-numbers` **TRACK_NUMBERS**: track numbers to assign to playlist items; must have same length as playlist items
-- `-r`, `--remove-chapters-source-file`: for video with chapters, remove source file after download
-- `-s`, `--strip-patterns` **STRIP_PATTERNS [STRIP_PATTERNS ...]**: remove patterns from title(s)
-- `--no-strip-meta`: don't remove artist and album names from title(s)
-- `-f`, `--audio-format` **AUDIO_FORMAT**: one of ('aac', 'flac', 'mp3', 'm4a', 'opus', 'vorbis', 'wav', 'best'); default 'mp3'; 'best' optimizes for audio quality, but may not be the format you want
-- `-q`, `--audio-quality` **AUDIO_FORMAT**: audio quality; insert a value between 0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)
-- `--chapters-file` **CHAPTERS_FILE**: path to JSON or CSV chapters file, for use with single video playlists or albums that have no chapter information; splits single video at points specified in chapters file; [see these examples](https://github.com/fortana-co/youtube-multi-dl/tree/master/examples/chapters_file)
-- `-o`, `--output-path` **OUTPUT_PATH**: path to directory in which album/playlist directory is created
+- `--album`: required for single-song URLs; otherwise defaults to the playlist/video title
+- `-p`, `--playlist-items`: playlist items to download; e.g. "1,3-5,7-9,11,12"
+- `-t`, `--track-numbers`: track numbers to assign; must be the same length as the items
+- `-s`, `--strip-patterns` : extra regex patterns to remove from title(s)
+- `-f`, `--audio-format`: **{opus,mp3}**; default `opus`; Opus is copied from YouTube's stream without re-encoding when possible; mp3 is for maximum device compatibility.
+- `-q`, `--audio-quality`: a bitrate like `160K`, or `0`–`9` VBR for mp3. Omit for opus to avoid re-encoding (recommended).
+- `--chapters-file`: JSON or CSV file of chapters used to split a single video at custom timestamps; [see these examples](./examples/chapters_file)
+- `-o`, `--output-path`: directory in which the album directory is created, default current dir
+- `--force`: re-download tracks even if they're already present
 
-### File Names
+### File names and tags
 
-It might look like **youtube-multi-dl** isn't doing a great job of cleaning file names. It doesn't remove the artist/album name, and it leaves the YouTube video ID in there!
+Tracks land at `<artist>/<album>/NN - Title.ext` (e.g. `Harry Nilsson/Nilsson Schmilsson/01 - Gotta Get Up.opus`), named cleanly and in order — the artist/album is stripped out of both the **title tag** (what your player shows) and the filename. The source video is not lost: it's stored in a `youtube_video_id` tag on each file (yt-dlp also embeds the source URL), which is how re-runs know what's already been downloaded.
 
-This is how it's supposed to work; **youtube-multi-dl** needs the meta info in the file name. What it actually cleans is the song's title (the **ID3 title tag**). This determines the name of the track in your music player.
+## Use with AI agents
+
+Because the CLI is non-interactive and emits schema-stable JSON, an agent can drive it directly — e.g. "download this album to `~/Music`", a YouTube URL, or a CSV of albums to fetch one by one. This repo ships a [skill](skills/youtube-multi-dl/SKILL.md) that teaches an agent the workflows, the output schema, and the error codes.
+
+**Claude Code** — copy or symlink the skill into your skills directory:
+
+```sh
+# user-wide (or use a project's .claude/skills/ instead)
+mkdir -p ~/.claude/skills
+ln -s "$(pwd)/skills/youtube-multi-dl" ~/.claude/skills/youtube-multi-dl
+```
+
+The skill is plain Markdown, so it works with other agent harnesses (e.g. Codex) too — point your tool at `skills/youtube-multi-dl/SKILL.md`.
 
 ## Contributing
 
@@ -96,16 +119,19 @@ Uses [ruff](https://docs.astral.sh/ruff/) for formatting, linting, and import so
 - `uv run ruff format .` to format source files in place
 - `uv run ruff check .` to lint (add `--fix` to auto-fix)
 - `uv run pyright` to type-check
-
-### Wish List
-
-Some single-song albums aren't divided into chapters, [like this one](https://www.youtube.com/watch?v=fEqrnR7_yT8). But if you look at the description, it clearly has metadata about the songs in the album. Can we find and parse this metadata so **youtube-multi-dl** can split videos like this into individual songs, the way it does for videos with chapters?
+- `uv run pytest` to type-check
 
 ### Release/Deploy to PyPI
 
 ```sh
 uv build
 uv publish
+```
+
+### Install locally
+
+```sh
+uv tool install .
 ```
 
 ## License

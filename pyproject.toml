@@ -1,20 +1,21 @@
 [project]
 name = "youtube-multi-dl"
-version = "2.0.0"
+version = "3.0.0"
 description = "Download and label albums and playlists from YouTube using yt-dlp"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-keywords = ["youtube", "yt-dlp", "mp3", "download", "playlist", "album", "chapters", "file", "id3"]
+keywords = ["youtube", "yt-dlp", "opus", "mp3", "download", "playlist", "album", "chapters", "file", "id3"]
 authors = [{ name = "kylebebak", email = "kylebebak@gmail.com" }]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "yt-dlp",
+    "yt-dlp[default]",
     "mutagen>=1.42.0,<2",
     "packaging",
+    "jsonschema>=4",
 ]
 
 [project.urls]
@@ -31,7 +32,7 @@ build-backend = "hatchling.build"
 packages = ["youtube_multi_dl"]
 
 [dependency-groups]
-dev = ["ruff", "pyright"]
+dev = ["ruff", "pyright", "pytest>=8"]
 
 [tool.ruff]
 line-length = 120
@@ -40,3 +41,8 @@ target-version = "py312"
 [tool.ruff.lint]
 # pycodestyle errors (E), pyflakes (F), isort import sorting (I)
 select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+markers = [
+    "youtube: tests that download from YouTube (skipped unless fixtures.json is populated)",
+]

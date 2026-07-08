@@ -12,3 +12,6 @@ dist/
 
 # tool caches
 .ruff_cache/
+
+# test fixtures
+tests/fixtures/*.mp4
