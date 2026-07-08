@@ -24,11 +24,7 @@ youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 
 ## Installation
 
-`pip3 install youtube-multi-dl`
-
-`youtube-multi-dl` requires Python 3. Use `pip3` to install it. If you don't have Python 3, you can install it with your package manager:
-
-- **macOS**: `brew install python`
+`pip install youtube-multi-dl`
 
 ### Deps
 
@@ -37,9 +33,9 @@ Like `yt-dlp`, `youtube-multi-dl` depends on [FFmpeg](https://www.ffmpeg.org/). 
 - **macOS**: `brew install ffmpeg`
 - **Ubuntu**: `sudo apt install ffmpeg`
 
-`youtube-multi-dl` depends on `yt-dlp`, which is installed automatically when you run `pip3 install youtube-multi-dl`.
+`youtube-multi-dl` depends on `yt-dlp`, which is installed automatically when you run `pip install youtube-multi-dl`.
 
-It's worth nothing that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip3 install --upgrade yt-dlp` to upgrade `yt-dlp` to the latest version.
+It's worth nothing that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-multi-dl` suddenly stops working, try running `pip install --upgrade yt-dlp` to upgrade `yt-dlp` to the latest version.
 
 ## Usage
 
@@ -77,17 +73,29 @@ Fork the repo and submit a PR. Create an issue if something is broken!
 
 ### Development
 
-See `main.py` in the root of the repo? This script makes it easy to test the package. It ensures **youtube-multi-dl** can be invoked from the command line, without going through the shim created by `setuptools` when the package is installed.
+This project uses [uv](https://docs.astral.sh/uv/) for packaging and development. Run `uv sync` to set things up:
 
-For example, from the root of the repo, just run `python3 main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
+```sh
+uv sync
+```
 
-Run `cd .git/hooks && ln -s -f ../../pre-push` to add `pre-push` hook to ensure you can't push anything that doesn't pass black, flake8 and pyright checks.
+By default this creates a virtual environment at `.venv` in the repo root (the standard location `uv` uses) and installs all dependencies into it, including dev tools (`ruff`, `pyright`). `pyrightconfig.json` points `pyright` at this `.venv`, so type checking can resolve `yt-dlp`, `mutagen`, and the other deps without any extra configuration.
+
+Run tools inside the environment with `uv run` (e.g. `uv run pyright`), or activate it with `source .venv/bin/activate`.
+
+See `main.py` in the root of the repo? This script makes it easy to test the package. It ensures **youtube-multi-dl** can be invoked from the command line, without going through the shim created when the package is installed.
+
+For example, from the root of the repo, just run `uv run main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
+
+Run `cd .git/hooks && ln -s -f ../../pre-push` to add the `pre-push` hook to ensure you can't push anything that doesn't pass ruff and pyright checks.
 
 ### Style
 
-Uses [black](https://github.com/psf/black).
+Uses [ruff](https://docs.astral.sh/ruff/) for formatting, linting, and import sorting.
 
-Run `pip3 install black` to install black, and run `black youtube_multi_dl` to format source files in place.
+- `uv run ruff format .` to format source files in place
+- `uv run ruff check .` to lint (add `--fix` to auto-fix)
+- `uv run pyright` to type-check
 
 ### Wish List
 
@@ -96,10 +104,8 @@ Some single-song albums aren't divided into chapters, [like this one](https://ww
 ### Release/Deploy to PyPI
 
 ```sh
-python setup.py sdist
-twine upload -r pypi dist/*
-# or, to upload specific version
-twine upload -r pypi dist/<version>
+uv build
+uv publish
 ```
 
 ## License

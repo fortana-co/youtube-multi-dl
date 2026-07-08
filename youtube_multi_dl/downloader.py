@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import csv
 import glob
 import json
@@ -7,64 +5,92 @@ import os
 import re
 import subprocess
 import sys
-from typing import Any
+from typing import Any, NamedTuple, TypedDict
 
-import yt_dlp as youtube_dl  # type: ignore
-from mutagen.easyid3 import EasyID3  # type: ignore
+import yt_dlp
+from mutagen.easyid3 import EasyID3
+
+# yt-dlp's `extract_info`/`YoutubeDL` are effectively dynamic; treat as untyped.
+youtube_dl: Any = yt_dlp
+
+# yt-dlp returns richly-nested, loosely-specified dicts; alias for readability.
+Info = dict[str, Any]
+# yt-dlp `YoutubeDL` options.
+Opts = dict[str, Any]
+
+
+class Chapter(TypedDict, total=False):
+    title: str
+    start_time: float | str | None
+    end_time: float | str | None
+
+
+class Status(NamedTuple):
+    number: int
+    success: bool
+    name: str
+
+
+class StatusWithUrl(NamedTuple):
+    number: int
+    success: bool
+    youtube_id: str
+    name: str
 
 
 def downloader(
     urls: list[str],
-    artist="",
-    album="",
-    playlist_items="",
+    artist: str = "",
+    album: str = "",
+    playlist_items: str = "",
     strip_patterns: list[str] | None = None,
-    strip_meta=True,
-    audio_format="",
-    audio_quality="",
-    chapters_file="",
-    output_path="",
-    **kwargs,
-) -> Any:
-    opts: dict[str, Any] = {"ignoreerrors": True}
+    strip_meta: bool = True,
+    audio_format: str = "",
+    audio_quality: str = "",
+    chapters_file: str = "",
+    output_path: str = "",
+    remove_chapters_source_file: bool = False,
+    track_numbers: str = "",
+) -> None:
+    opts: Opts = {"ignoreerrors": True}
     if playlist_items:
         opts["playlist_items"] = playlist_items
 
-    info_opts = {**opts, "dump_single_json": True}
-    postprocessor = {"key": "FFmpegExtractAudio", "preferredcodec": audio_format}
+    info_opts: Opts = {**opts, "dump_single_json": True}
+    postprocessor: dict[str, str] = {"key": "FFmpegExtractAudio", "preferredcodec": audio_format}
     if audio_quality:
         postprocessor["preferredquality"] = audio_quality
-    download_opts = {**opts, "postprocessors": [postprocessor]}
+    download_opts: Opts = {**opts, "postprocessors": [postprocessor]}
 
     url = urls[0]
     with youtube_dl.YoutubeDL(info_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+        info: Info | None = ydl.extract_info(url, download=False)
     if not info:
         sys.exit("couldn't get info")
 
     if chapters_file:
         chapters_file = os.path.abspath(os.path.expanduser(chapters_file))
         if not os.path.exists(chapters_file):
-            sys.exit("no chapters file at {}, exiting...".format(chapters_file))
+            sys.exit(f"no chapters file at {chapters_file}, exiting...")
 
     is_single_songs = info.get("extractor") == "youtube" and not info.get("chapters") and not chapters_file
     if is_single_songs and not album:
         sys.exit("if you pass single-song URL(s), you must also specify an album (--album)")
 
     album = album or info["title"]
-    directory = "./{}".format(album)
+    directory = f"./{album}"
 
     if output_path:
         try:
             os.chdir(os.path.expanduser(output_path))
         except Exception:
-            sys.exit("failed to cd into {}, exiting...".format(output_path))
+            sys.exit(f"failed to cd into {output_path}, exiting...")
 
     download = True
     try:
         os.makedirs(directory)
     except FileExistsError:
-        print("\nthe album directory {} already exists".format(directory))
+        print(f"\nthe album directory {directory} already exists")
         text = ""
         if is_single_songs:
             text = capture_input("(d)ownload again, (e)xit: ", "d", "e")
@@ -79,38 +105,58 @@ def downloader(
     os.chdir(directory)
 
     if strip_meta:
-        patterns = [" *-? *{} *-? *".format(artist)]
+        patterns = [f" *-? *{artist} *-? *"]
         if album:
-            patterns.append(" *- *{} *".format(album))
-            patterns.append(" *{} *- *".format(album))
+            patterns.append(f" *- *{album} *")
+            patterns.append(f" *{album} *- *")
         strip_patterns = (strip_patterns or []) + patterns
-
-    all_kwargs = {
-        "url": url,
-        "urls": urls,
-        "album": album,
-        "info": info,
-        "download": download,
-        "info_opts": info_opts,
-        "download_opts": download_opts,
-        "artist": artist,
-        "strip_patterns": strip_patterns,
-        "chapters_file": chapters_file,
-        **kwargs,
-    }
 
     if info.get("extractor") == "youtube":
         if not info.get("chapters") and not chapters_file:
-            single_songs(**all_kwargs)
+            single_songs(
+                urls=urls,
+                artist=artist,
+                album=album,
+                info_opts=info_opts,
+                download_opts=download_opts,
+                track_numbers=track_numbers,
+                strip_patterns=strip_patterns,
+            )
         else:
-            chapters(**all_kwargs)
+            chapters(
+                url=url,
+                artist=artist,
+                album=album,
+                info=info,
+                download=download,
+                download_opts=download_opts,
+                remove_chapters_source_file=remove_chapters_source_file,
+                strip_patterns=strip_patterns,
+                chapters_file=chapters_file,
+            )
     else:
         print("extractor:", info.get("extractor"), ":: downloading playlist")
-        playlist(**all_kwargs)
+        playlist(
+            url=url,
+            artist=artist,
+            album=album,
+            info=info,
+            download=download,
+            info_opts=info_opts,
+            download_opts=download_opts,
+            track_numbers=track_numbers,
+            strip_patterns=strip_patterns,
+        )
 
 
 def single_songs(
-    urls: list[str], artist, album, info_opts, download_opts, track_numbers, strip_patterns, **kwargs
+    urls: list[str],
+    artist: str,
+    album: str,
+    info_opts: Opts,
+    download_opts: Opts,
+    track_numbers: str,
+    strip_patterns: list[str] | None,
 ) -> None:
     if len(urls) == 1:
         print("\nthis video is not a playlist, and it has no chapters, are you sure you want to proceed?")
@@ -123,52 +169,52 @@ def single_songs(
             print("\nexiting...")
             sys.exit(0)
 
-    status = []
+    status: list[StatusWithUrl] = []
     tracks = parse_track_numbers(track_numbers)
     if tracks and len(urls) != len(tracks):
-        sys.exit("you passed {} track(s) and {} url(s)".format(len(tracks), len(urls)))
+        sys.exit(f"you passed {len(tracks)} track(s) and {len(urls)} url(s)")
 
     for i, url in enumerate(urls):
         idx = tracks[i] if tracks else i + 1
 
         with youtube_dl.YoutubeDL(info_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info: Info | None = ydl.extract_info(url, download=False)
         if not info:
-            status.append((idx, False, "", ""))
+            status.append(StatusWithUrl(idx, False, "", ""))
             continue
 
-        if not glob.glob("*{}.*".format(info["id"])):  # don't redownload file
+        if not glob.glob(f"*{info['id']}.*"):  # don't redownload file
             with youtube_dl.YoutubeDL(download_opts) as ydl:
                 ydl.download([url])
         else:
             print(
-                "\nfound matching file for {}... if you wish to download and process file again, "
-                "delete this file, or delete album directory\n".format(info["title"])
+                f"\nfound matching file for {info['title']}... if you wish to download and process file again, "
+                "delete this file, or delete album directory\n"
             )
 
         title = strip(info["title"], strip_patterns) or info["title"]
-        for file in glob.glob("*{}.*".format(info["id"])):
+        for file in glob.glob(f"*{info['id']}.*"):
             _, extension = os.path.splitext(file)
-            set_audio_id3(file, title=title, artist=artist, album=album, tracknumber="{}/{}".format(idx, len(urls)))
+            set_audio_id3(file, title=title, artist=artist, album=album, tracknumber=f"{idx}/{len(urls)}")
             try:
-                os.rename(file, "{}-{}{}".format(title, info["id"], extension))
+                os.rename(file, f"{title}-{info['id']}{extension}")
             except Exception:
                 pass
-        status.append((idx, True, info["id"], info["title"]))
-    print("\n{}\n".format("\n".join(format_status_with_url(s) for s in status)))
+        status.append(StatusWithUrl(idx, True, info["id"], info["title"]))
+    lines = "\n".join(format_status_with_url(s) for s in status)
+    print(f"\n{lines}\n")
 
 
 def chapters(
-    url,
-    artist,
-    album,
-    info,
-    download,
-    download_opts,
-    remove_chapters_source_file,
-    strip_patterns,
-    chapters_file,
-    **kwargs,
+    url: str,
+    artist: str,
+    album: str,
+    info: Info,
+    download: bool,
+    download_opts: Opts,
+    remove_chapters_source_file: bool,
+    strip_patterns: list[str] | None,
+    chapters_file: str,
 ) -> None:
     """Single file with chapters."""
 
@@ -177,11 +223,11 @@ def chapters(
             ydl.download([url])
 
     source_file = ""
-    files = glob.glob("*{}.*".format(info["id"]))
+    files = glob.glob(f"*{info['id']}.*")
     if files:
         source_file = files[0]
 
-    chapters: list[dict] = []
+    chapters: list[Chapter] = []
     if chapters_file:
         read = False
         with open(chapters_file) as file_handle:
@@ -189,13 +235,13 @@ def chapters(
                 chapters = json.load(file_handle)
                 read = True
             except json.JSONDecodeError:
-                print("\nfailed to read {} as JSON, trying as CSV\n".format(chapters_file))
+                print(f"\nfailed to read {chapters_file} as JSON, trying as CSV\n")
         if not read:
             chapters = read_as_csv(chapters_file)
     else:
-        chapters = info.get("chapters")
+        chapters = info.get("chapters") or []
 
-    status = []
+    status: list[Status] = []
     for i, chapter in enumerate(chapters):
         idx = i + 1
 
@@ -207,9 +253,7 @@ def chapters(
             if i > 0:
                 start_time = chapters[i - 1].get("end_time")
                 if start_time is None or start_time == "":
-                    sys.exit(
-                        "chapter {} has no start_time, and chapter {} has no end_time".format(chapter, chapters[i - 1])
-                    )
+                    sys.exit(f"chapter {chapter} has no start_time, and chapter {chapters[i - 1]} has no end_time")
             else:
                 start_time = 0
 
@@ -218,97 +262,104 @@ def chapters(
             if i < len(chapters) - 1:
                 end_time = chapters[i + 1].get("start_time")
                 if end_time is None or end_time == "":
-                    sys.exit(
-                        "chapter {} has no end_time, and chapter {} has no start_time".format(chapter, chapters[i + 1])
-                    )
+                    sys.exit(f"chapter {chapter} has no end_time, and chapter {chapters[i + 1]} has no start_time")
             else:
                 end_time = 1000000000
 
-        file = (glob.glob("*{}.*".format(title)) or [""])[0]
+        file = (glob.glob(f"*{title}.*") or [""])[0]
         if source_file:
             _, extension = os.path.splitext(source_file)
-            file = "{}{}".format(title, extension)
+            file = f"{title}{extension}"
             cmd = ["ffmpeg", "-i", source_file, "-acodec", "copy", "-ss", str(start_time), "-to", str(end_time), file]
             subprocess.check_output(cmd)
-        if set_audio_id3(file, title=title, artist=artist, album=album, tracknumber="{}/{}".format(idx, len(chapters))):
-            status.append((idx, True, title))
+        if set_audio_id3(file, title=title, artist=artist, album=album, tracknumber=f"{idx}/{len(chapters)}"):
+            status.append(Status(idx, True, title))
         else:
-            status.append((idx, False, title))
+            status.append(Status(idx, False, title))
     if remove_chapters_source_file and source_file:
         try:
             os.remove(source_file)
         except Exception:
             pass
-    full_url = "https://www.youtube.com/watch?v={}".format(info["id"])
-    print("\nplaylist built from single video with chapters: {}".format(full_url))
-    print("\n{}\n".format("\n".join(format_status(s) for s in status)))
+    full_url = f"https://www.youtube.com/watch?v={info['id']}"
+    print(f"\nplaylist built from single video with chapters: {full_url}")
+    lines = "\n".join(format_status(s) for s in status)
+    print(f"\n{lines}\n")
 
 
 def playlist(
-    url, artist, album, info, download, info_opts, download_opts, track_numbers, strip_patterns, **kwargs
+    url: str,
+    artist: str,
+    album: str,
+    info: Info,
+    download: bool,
+    info_opts: Opts,
+    download_opts: Opts,
+    track_numbers: str,
+    strip_patterns: list[str] | None,
 ) -> None:
     tracks = parse_track_numbers(track_numbers)
-    entries = info.get("entries")
+    entries = info.get("entries") or []
     if tracks and len(entries) != len(tracks):
-        sys.exit("you passed {} track(s) but there are {} file(s) in the playlist".format(len(tracks), len(entries)))
+        sys.exit(f"you passed {len(tracks)} track(s) but there are {len(entries)} file(s) in the playlist")
     if download:
         with youtube_dl.YoutubeDL(download_opts) as ydl:
             ydl.download([url])
 
-    status = []
+    status: list[StatusWithUrl] = []
     for i, entry in enumerate(entries):
         idx = tracks[i] if tracks else i + 1
         with youtube_dl.YoutubeDL(info_opts) as ydl:
             if entry is None:
-                track_info = None
-                status.append((idx, False, "", ""))
+                status.append(StatusWithUrl(idx, False, "", ""))
                 continue
             else:
-                track_info = ydl.extract_info(entry["id"], download=False)
+                track_info: Info | None = ydl.extract_info(entry["id"], download=False)
                 if track_info is None:
-                    status.append((idx, False, entry["id"], entry.get("title", "")))
+                    status.append(StatusWithUrl(idx, False, entry["id"], entry.get("title", "")))
                     continue
 
         title = strip(track_info["title"], strip_patterns) or track_info["title"]
-        status.append((idx, True, track_info["id"], title))
-        for file in glob.glob("*{}.*".format(track_info["id"])):
+        status.append(StatusWithUrl(idx, True, track_info["id"], title))
+        for file in glob.glob(f"*{track_info['id']}.*"):
             _, extension = os.path.splitext(file)
-            set_audio_id3(file, title=title, artist=artist, album=album, tracknumber="{}/{}".format(idx, len(entries)))
+            set_audio_id3(file, title=title, artist=artist, album=album, tracknumber=f"{idx}/{len(entries)}")
             try:
-                os.rename(file, "{}-{}{}".format(title, track_info["id"], extension))
+                os.rename(file, f"{title}-{track_info['id']}{extension}")
             except Exception:
                 pass
-    print("\n{}\n".format("\n".join(format_status_with_url(s) for s in status)))
+    lines = "\n".join(format_status_with_url(s) for s in status)
+    print(f"\n{lines}\n")
 
 
-def format_status(track: tuple[int, bool, str]) -> str:
+def format_status(track: Status) -> str:
     num, success, name = track
     return "    ".join([str(num).rjust(5), "✔" if success else "✘", name])
 
 
-def format_status_with_url(track: tuple[int, bool, str, str]) -> str:
+def format_status_with_url(track: StatusWithUrl) -> str:
     num, success, youtube_id, name = track
     return "    ".join(
-        [str(num).rjust(5), "✔" if success else "✘", "https://www.youtube.com/watch?v={}".format(youtube_id), name]
+        [str(num).rjust(5), "✔" if success else "✘", f"https://www.youtube.com/watch?v={youtube_id}", name]
     )
 
 
-def capture_input(prompt: str, *options) -> str:
+def capture_input(prompt: str, *options: str) -> str:
     while True:
         text = input(prompt).lower()
         if text in options:
             return text
         else:
-            print("`{}` is not a valid option".format(text))
+            print(f"`{text}` is not a valid option")
 
 
-def set_audio_id3(file: str, **kwargs) -> bool:
+def set_audio_id3(file: str, **tags: str) -> bool:
     try:
         audio = EasyID3(file)
     except Exception as e:
-        print("{}\ntried to set metadata on {} but couldn't, skipping...".format(e, file))
+        print(f"{e}\ntried to set metadata on {file} but couldn't, skipping...")
         return False
-    for k, v in kwargs.items():
+    for k, v in tags.items():
         audio[k] = v
     audio.save()
     return True
@@ -318,14 +369,14 @@ def clean_filename(file: str) -> str:
     return file.replace("/", "").replace(chr(92), "").replace(chr(0), "")
 
 
-def read_as_csv(file: str) -> list[dict]:
+def read_as_csv(file: str) -> list[Chapter]:
     with open(file) as file_handle:
         reader = csv.reader(file_handle, delimiter=",")
         chapters = [
-            {"title": row[0], "start_time": row[1], "end_time": row[2] if len(row) >= 3 else None} for row in reader
+            Chapter(title=row[0], start_time=row[1], end_time=row[2] if len(row) >= 3 else None) for row in reader
         ]
         if len(chapters) == 0:
-            sys.exit("failed to read {} as CSV, exiting...".format(file))
+            sys.exit(f"failed to read {file} as CSV, exiting...")
         return chapters
 
 
@@ -348,7 +399,7 @@ def parse_track_numbers(s: str) -> list[int]:
             if len(pair) == 1:
                 tracks.append(int(pair[0]))
             else:
-                tracks += [i for i in range(int(pair[0]), int(pair[1]) + 1)]
+                tracks += list(range(int(pair[0]), int(pair[1]) + 1))
         return tracks
     except Exception as e:
-        sys.exit("invalid track numbers: {}".format(e))
+        sys.exit(f"invalid track numbers: {e}")

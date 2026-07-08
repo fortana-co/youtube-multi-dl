@@ -19,7 +19,7 @@
 
 
 ## 1.2.1
-- Upgrade `youtube-dl` dep to 2019.04.24 because an issue appeared in 2019.2.8. You can manually upgrade the `youtube-dl` dep by running `pip3 install --upgrade youtube-dl`.
+- Upgrade `youtube-dl` dep to 2019.04.24 because an issue appeared in 2019.2.8. You can manually upgrade the `youtube-dl` dep by running `pip install --upgrade youtube-dl`.
 
 
 ## 1.2.0

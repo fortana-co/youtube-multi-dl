@@ -2,7 +2,6 @@
 
 # run from root of repo: `cd .git/hooks && ln -s -f ../../pre-push`
 
-isort --check .
-black --check .
-flake8 --exclude '*.pyc' .
-pyright
+uv run ruff format --check .
+uv run ruff check .
+uv run pyright

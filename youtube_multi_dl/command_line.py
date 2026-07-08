@@ -1,16 +1,16 @@
 import argparse
 import subprocess
 import sys
-from distutils.version import LooseVersion
-from typing import Union
+from typing import Any
 
-import youtube_dl  # type: ignore
+import yt_dlp
+from packaging.version import Version
 
-if sys.version_info.major < 3 or sys.version_info.minor < 8:
-    sys.exit(
-        "you need at least python3.8 to run youtube-multi-dl\n\n"
-        "make sure you installed it with `pip3 install youtube-multi-dl`"
-    )
+# yt-dlp is effectively dynamic; treat as untyped.
+youtube_dl: Any = yt_dlp
+
+if sys.version_info < (3, 12):
+    sys.exit("you need at least python3.12 to run youtube-multi-dl\n\n")
 
 from .downloader import downloader  # noqa
 
@@ -47,8 +47,8 @@ parser.add_argument(
     "--audio-format",
     type=str,
     default="mp3",
-    help='Audio format; one of {}; default "mp3"; '
-    '"best" optimizes for audio quality, but may not be the format you want'.format(audio_formats),
+    help=f'Audio format; one of {audio_formats}; default "mp3"; '
+    '"best" optimizes for audio quality, but may not be the format you want',
 )
 parser.add_argument(
     "-q",
@@ -64,7 +64,7 @@ parser.add_argument(
 )
 
 
-def latest_version(package_info_url: str) -> Union[LooseVersion, None]:
+def latest_version(package_info_url: str) -> Version | None:
     import json
     import urllib.request
 
@@ -74,7 +74,7 @@ def latest_version(package_info_url: str) -> Union[LooseVersion, None]:
         info = json.loads(text.decode("utf-8"))
 
         versions = info["releases"].keys() or ["0.0.0"]
-        return max(LooseVersion(v) for v in versions)
+        return max(Version(v) for v in versions)
     except Exception:
         return None
 
@@ -83,30 +83,22 @@ def print_version(always_show_version: bool = True) -> None:
     version = latest_version("https://pypi.python.org/pypi/youtube-multi-dl/json")
 
     if version is not None:
-        if version > LooseVersion(your_version):
-            print(
-                "\n####\nthe latest version of youtube-multi-dl is {}, but you have {}".format(
-                    version.vstring, your_version
-                )
-            )
-            print("run `pip3 install --upgrade youtube-multi-dl` to upgrade\n####")
+        if version > Version(your_version):
+            print(f"\n####\nthe latest version of youtube-multi-dl is {version}, but you have {your_version}")
+            print("run e.g. `pip install --upgrade youtube-multi-dl` to upgrade\n####")
             print("\nsee release notes here: https://github.com/fortana-co/youtube-multi-dl/blob/master/RELEASES.md")
         elif always_show_version:
-            print("latest version is {}, you're up to date!".format(version))
+            print(f"latest version is {version}, you're up to date!")
 
 
 def print_ydl_version(always_show_version: bool = True) -> None:
     version = latest_version("https://pypi.python.org/pypi/yt-dlp/json")
     if version is not None:
-        if version > LooseVersion(youtube_dl.version.__version__):
-            print(
-                "\n####\nthe latest version of yt-dlp is {}, but you have {}".format(
-                    version.vstring, youtube_dl.version.__version__
-                )
-            )
+        if version > Version(youtube_dl.version.__version__):
+            print(f"\n####\nthe latest version of yt-dlp is {version}, but you have {youtube_dl.version.__version__}")
             print("you should upgrade yt-dlp")
         elif always_show_version:
-            print("latest yt-dlp version is {}, you're up to date!".format(version))
+            print(f"latest yt-dlp version is {version}, you're up to date!")
 
 
 def main() -> None:
@@ -116,9 +108,9 @@ def main() -> None:
     http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
     """
     if len(sys.argv) > 1 and (sys.argv[1] == "-v" or sys.argv[1] == "--version"):
-        print("youtube-multi-dl version {}".format(your_version))
+        print(f"youtube-multi-dl version {your_version}")
         print_version()
-        print("\nyt-dlp version {}".format(youtube_dl.version.__version__))
+        print(f"\nyt-dlp version {youtube_dl.version.__version__}")
         print_ydl_version()
 
         sys.exit(0)
@@ -126,38 +118,36 @@ def main() -> None:
         sys.argv.append("-h")
 
     args = parser.parse_args()
-    kwargs = {}
-    for name in [
-        "artist",
-        "album",
-        "playlist_items",
-        "remove_chapters_source_file",
-        "strip_patterns",
-        "track_numbers",
-        "audio_format",
-        "audio_quality",
-        "chapters_file",
-        "output_path",
-    ]:
-        kwargs[name] = args.__getattribute__(name)
-    kwargs["urls"] = args.__getattribute__("url")
-    kwargs["strip_meta"] = not args.__getattribute__("no_strip_meta")
 
-    if kwargs["audio_format"] not in audio_formats:
-        print("invalid audio format: must be one of {}".format(audio_formats))
+    audio_format: str = args.audio_format
+    audio_quality: str = args.audio_quality
+    if audio_format not in audio_formats:
+        print(f"invalid audio format: must be one of {audio_formats}")
         sys.exit()
-    if kwargs["audio_format"] != "best" and not kwargs["audio_quality"]:
-        kwargs["audio_quality"] = "160"
+    if audio_format != "best" and not audio_quality:
+        audio_quality = "160"
 
     if subprocess.call(["which", "ffmpeg"]) != 0:
         print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")
-        print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
         print("osx: `brew install ffmpeg`")
         print("ubuntu: `sudo apt-get install ffmpeg`")
         sys.exit()
 
     try:
-        downloader(**kwargs)
+        downloader(
+            urls=args.url,
+            artist=args.artist,
+            album=args.album,
+            playlist_items=args.playlist_items,
+            strip_patterns=args.strip_patterns,
+            strip_meta=not args.no_strip_meta,
+            audio_format=audio_format,
+            audio_quality=audio_quality,
+            chapters_file=args.chapters_file,
+            output_path=args.output_path,
+            remove_chapters_source_file=args.remove_chapters_source_file,
+            track_numbers=args.track_numbers,
+        )
     except KeyboardInterrupt:
         sys.exit()
 
