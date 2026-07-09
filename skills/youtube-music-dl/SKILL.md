@@ -60,7 +60,7 @@ If the user got the artist or album wrong, don't re-download — use the `retag`
 youtube-music-dl retag "<existing album directory>" -a "New Artist" --album "New Album"
 ```
 
-Point it at the existing `<album>` directory (the one holding the `.opus`/`.mp3` files). Pass `-a` and/or `--album` — whichever changed. It errors (`INVALID_ARGS`) if the directory has no audio files, or if the destination already exists (which usually means the corrected album is already there). Output conforms to the `retag` schema.
+Point it at the existing `<artist>/<album>` directory (the one holding the `.opus`/`.mp3` files). Pass `-a` and/or `--album` — whichever changed. It errors with `INVALID_ARGS` if the directory has no audio files, or if the destination already exists (which usually means the corrected album is already there). Output conforms to the `retag` schema.
 
 ## Decide the mode with `--probe` (do this for a single video)
 
