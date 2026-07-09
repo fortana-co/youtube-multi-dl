@@ -40,14 +40,15 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 
 ## Key options
 
-- `-a/--artist` (required), `--album` (required only for single-song URLs).
-- `-p/--playlist-items "1,3-5"`, `-t/--track-numbers "1,3-5"` (same length as items).
-- `-f/--audio-format {opus,mp3}` (default `opus`), `-q/--audio-quality 160K`.
-- `-o/--output-path DIR` — an `<artist>/<album>/` directory is created inside DIR.
-- `--chapters-file FILE.json` — split a single video at custom timestamps.
-- `-s/--strip-patterns …`, `--force`.
+- `-a/--artist`: required
+- `--album`: required only for single-song URLs
+- `-p/--playlist-items "1,3-5"`: tracks in playlist to download
+- `-t/--track-numbers "1,3-5"`: same length as playlist
+- `-f/--audio-format {opus,mp3}`: default `opus`
+- `-o/--output-path DIR`: an `<artist>/<album>/` directory is created inside DIR
+- `--chapters-file FILE.json`: split a single video at custom timestamps
 
-See all command line options in the project's `command_line.py`.
+See all command line options by running `youtube-multi-dl -h`.
 
 ## Workflows
 

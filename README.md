@@ -1,12 +1,10 @@
 # youtube-multi-dl
 
-![License](https://camo.githubusercontent.com/890acbdcb87868b382af9a4b1fac507b9659d9bf/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f6c6963656e73652d4d49542d626c75652e737667)
-
 **youtube-multi-dl** makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-song](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters).
 
 It tags them (title, artist, album, track number) so they're correctly grouped and ordered in whatever music player you use, cleans up the song titles, and gives files clean names. Output is [Opus](https://opus-codec.org/) by default (excellent quality at small sizes, and copied straight from YouTube's stream without re-encoding when possible) or mp3.
 
-It's a wrapper around the amazing [yt-dlp](https://github.com/yt-dlp/yt-dlp), built to be simple to use from a shell, a script, or an AI agent. It prints a single JSON object describing what it did. It's built to be as simple as possible:
+It's a wrapper around the amazing [yt-dlp](https://github.com/yt-dlp/yt-dlp), built to be as simple as possible to use from the command line, in a script, or by an AI agent. It prints a single JSON object describing what it did.
 
 ```sh
 # Download and label tracks 1-10 of this playlist by "Star Band de Dakar"
@@ -28,12 +26,14 @@ youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 
 ### Deps
 
-`youtube-multi-dl` needs two system binaries:
+`youtube-multi-dl` needs a few system binaries (used by `yt-dlp`):
 
-- **[FFmpeg](https://www.ffmpeg.org/)** to convert and split audio.
-  - **macOS**: `brew install ffmpeg` · **Ubuntu**: `sudo apt install ffmpeg`
+- **[FFmpeg](https://www.ffmpeg.org/)** and `ffprobe` to convert and split audio.
+  - **macOS**: `brew install ffmpeg`
+  - **Ubuntu**: `sudo apt install ffmpeg`
 - **A JavaScript runtime**: modern YouTube requires one for extraction. [Deno](https://deno.com/) is recommended (Node also works).
-  - **macOS**: `brew install deno` · **Ubuntu**: [see Deno install docs](https://docs.deno.com/runtime/getting_started/installation/)
+  - **macOS**: `brew install deno`
+  - **Ubuntu**: [see Deno install docs](https://docs.deno.com/runtime/getting_started/installation/)
 
 If a required binary is missing, `youtube-multi-dl` tells you (with an `error.code` of `NO_FFMPEG` or `NO_JS_RUNTIME`) instead of failing cryptically.
 
@@ -47,7 +47,7 @@ It's worth noting that `yt-dlp` occasionally "breaks", for example because YouTu
 - **Albums from a list of single-song URLs**, tagged with a shared album and sequential track numbers, in one command.
 - **Opinionated one-liner defaults**: makes an album folder, cleans song titles (strips the artist/album out), tags everything, and gives files clean, ordered names.
 - **Automatic mode detection**: you don't tell it whether the URL is a playlist, a chaptered video, or single songs, it figures it out. It also auto-splits a single video that *does* have chapters, with no extra flag. When driven with an agent, it can download albums that don't have chapters, as long as the description has track names and durations, or if these are supplied by the user.
-- **Agent-friendly output**: one JSON object on stdout, a stable error/exit-code contract, and idempotent re-runs.
+- **Agent-friendly output**: one JSON object on stdout, a stable error/exit-code contract, idempotent re-runs, and a skill that teaches agents how to run common workflows.
 
 ## Usage
 

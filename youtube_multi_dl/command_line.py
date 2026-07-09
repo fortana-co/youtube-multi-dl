@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-p", "--playlist-items", default="", help='playlist items to download, e.g. "1,3-5,7-9"')
     parser.add_argument("-t", "--track-numbers", default="", help="track numbers to assign; same length as the items")
     parser.add_argument("-s", "--strip-patterns", nargs="+", help="extra regex patterns to remove from titles")
+    parser.add_argument("--no-strip-meta", action="store_true", help="don't remove artist and album names from titles")
     parser.add_argument(
         "-f",
         "--audio-format",
@@ -118,6 +119,7 @@ def main() -> None:
             album=args.album,
             playlist_items=args.playlist_items,
             strip_patterns=args.strip_patterns,
+            strip_meta=not args.no_strip_meta,
             audio_format=args.audio_format,
             audio_quality=args.audio_quality,
             chapters_file=args.chapters_file,
