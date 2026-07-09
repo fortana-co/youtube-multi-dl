@@ -1,5 +1,15 @@
 # youtube-multi-dl
 
+> [!IMPORTANT]
+> **`youtube-multi-dl` has been renamed to [`youtube-music-dl`](https://github.com/fortana-co/youtube-music-dl) and is no longer maintained under this name.**
+> It's the same tool by the same maintainer — the new name just better reflects its focus. Please switch:
+>
+> ```sh
+> pip uninstall youtube-multi-dl && pip install youtube-music-dl
+> ```
+>
+> This `3.1.0` release still works as documented, but every run prints a reminder to migrate. All future development happens in [`youtube-music-dl`](https://github.com/fortana-co/youtube-music-dl).
+
 **youtube-multi-dl** makes it super easy to download and label music from YouTube. It handles single songs, [playlists](https://www.youtube.com/watch?v=PlnanwD_vS0&index=1&list=PLcOYKKFxnwAdGh4NCgpXq_FNQoZKL6xWM), and [single-song](https://www.youtube.com/watch?v=SDeuYY3Hi_I) [albums](https://www.youtube.com/watch?v=eTYushgUR00) (it splits them by chapters).
 
 It tags them (title, artist, album, track number) so they're correctly grouped and ordered in whatever music player you use, cleans up the song titles, and gives files clean names. Output is [Opus](https://opus-codec.org/) by default (excellent quality at small sizes, and copied straight from YouTube's stream without re-encoding when possible) or mp3.

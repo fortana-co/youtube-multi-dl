@@ -142,7 +142,28 @@ def fail(code: ErrorCode, message: str) -> None:
     sys.exit(1)
 
 
+DEPRECATION_NOTICE = """\
+
+  ┌────────────────────────────────────────────────────────────────────┐
+  │  youtube-multi-dl has been renamed to youtube-music-dl and is NO   │
+  │  LONGER MAINTAINED under this name. Same tool, same maintainer —   │
+  │  just a clearer name. Please switch:                               │
+  │                                                                    │
+  │      pip install youtube-music-dl                                  │
+  │                                                                    │
+  │  https://github.com/fortana-co/youtube-music-dl                    │
+  └────────────────────────────────────────────────────────────────────┘
+
+"""
+
+
+def print_deprecation_notice() -> None:
+    # stderr, so the stdout JSON contract is unaffected for scripts/agents
+    print(DEPRECATION_NOTICE, file=sys.stderr)
+
+
 def main() -> None:
+    print_deprecation_notice()
     parser = build_parser()
     args = parser.parse_args()
 

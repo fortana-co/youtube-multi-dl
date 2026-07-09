@@ -1,13 +1,14 @@
 [project]
 name = "youtube-multi-dl"
 version = "3.1.0"
-description = "Download and label albums and playlists from YouTube using yt-dlp"
+description = "DEPRECATED — renamed to youtube-music-dl. Download and label albums and playlists from YouTube."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 keywords = ["youtube", "yt-dlp", "opus", "mp3", "download", "playlist", "album", "chapters", "file", "id3"]
 authors = [{ name = "kylebebak", email = "kylebebak@gmail.com" }]
 classifiers = [
+    "Development Status :: 7 - Inactive",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
 ]
