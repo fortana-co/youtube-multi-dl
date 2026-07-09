@@ -1,15 +1,15 @@
 ---
-name: youtube-multi-dl
+name: youtube-music-dl
 description: Download and label music albums or playlists from YouTube as tagged audio files (opus by default, or mp3). Use when a user wants to download an album, a playlist, or an "album" video split into per-song tracks — given an album+artist name, a YouTube URL/ID, or a CSV/spreadsheet of albums to fetch. Produces cleanly-named, ID3/Vorbis-tagged files and emits machine-readable JSON.
 ---
 
-# youtube-multi-dl
+# youtube-music-dl
 
 A CLI wrapper around `yt-dlp` that downloads audio from YouTube and labels it: clean titles, artist/album/track-number tags, and a `youtube_video_id` provenance tag. It handles playlists, single "album" videos with chapters, and albums assembled from a list of single-song URLs.
 
 ## Preconditions (check once, before first use)
 
-Run `youtube-multi-dl --version`. If a command later fails, verify the tooling:
+Run `youtube-music-dl --version`. If a command later fails, verify the tooling:
 
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg` / `apt install ffmpeg`).
 - A JavaScript runtime for yt-dlp: **deno** recommended (`brew install deno`), or node. Without one, YouTube extraction fails or is degraded.
@@ -18,11 +18,11 @@ If a required binary is missing the CLI exits `1` with an error object whose `er
 
 ## CLI contract (how to consume output)
 
-- **stdout is exactly one JSON object.** All logs/progress go to **stderr**. Always parse stdout as JSON; ignore or forward stderr. Example: `youtube-multi-dl <url> -a "Artist" 2>/dev/null`
+- **stdout is exactly one JSON object.** All logs/progress go to **stderr**. Always parse stdout as JSON; ignore or forward stderr. Example: `youtube-music-dl <url> -a "Artist" 2>/dev/null`
 - **Exit codes:** `0` = every track downloaded or already present; `2` = some tracks failed (a result object is still emitted — inspect per-track `status`); `1` = fatal error (an error object with a stable `error.code`).
 - **Idempotent:** re-running skips tracks already present (matched by the `youtube_video_id` tag). Pass `--force` to re-download.
 
-Success object (run `youtube-multi-dl --print-schema` for the authoritative JSON Schemas of the result, error, and probe outputs):
+Success object (run `youtube-music-dl --print-schema` for the authoritative JSON Schemas of the result, error, and probe outputs):
 
 ```json
 {
@@ -46,18 +46,28 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 - `-t/--track-numbers "1,3-5"`: same length as playlist
 - `-f/--audio-format {opus,mp3}`: default `opus`
 - `-o/--output-path DIR`: an `<artist>/<album>/` directory is created inside DIR. If omitted, defaults to `$YMD_OUTPUT_DIR` (a music dir the user may have configured), else the current directory. Prefer omitting `-o` when the user hasn't named a location, so their configured default is used; only ask where to save if neither is available.
-- `--chapters-file FILE.json`: split a single video at custom timestamps
+- `--chapters-file FILE.json`: split a single video at custom timestamps (JSON files are validated against the `chapters_file` schema from `--print-schema`; malformed ones fail with `INVALID_ARGS`)
 - `--probe`: report what a real run *would* do (mode, chapters, description) **without downloading**
-- `--print-schema` / `--print-skill`: print the JSON Schemas / this document
+- `--print-schema` / `--print-skill`: print the JSON Schemas (`result`, `error`, `probe`, `retag`, `chapters_file`) / this document
 
-See all command line options by running `youtube-multi-dl -h`.
+See all command line options by running `youtube-music-dl -h`.
+
+## Fix tags without re-downloading: `retag`
+
+If the user got the artist or album wrong, don't re-download — use the `retag` subcommand. It rewrites the artist/album tags on the album's files and moves the `<artist>/<album>` folder to match. Titles, track numbers, and provenance are left intact.
+
+```sh
+youtube-music-dl retag "<existing album directory>" -a "New Artist" --album "New Album"
+```
+
+Point it at the existing `<album>` directory (the one holding the `.opus`/`.mp3` files). Pass `-a` and/or `--album` — whichever changed. It errors (`INVALID_ARGS`) if the directory has no audio files, or if the destination already exists (which usually means the corrected album is already there). Output conforms to the `retag` schema.
 
 ## Decide the mode with `--probe` (do this for a single video)
 
 For a bare URL/ID you're unsure about, probe first — it inspects without downloading:
 
 ```sh
-youtube-multi-dl --probe "<url>" 2>/dev/null
+youtube-music-dl --probe "<url>" 2>/dev/null
 ```
 
 It returns `{mode, title, duration_s, chapters, entries, description, hint}`. Use it to pick the workflow:
@@ -72,7 +82,7 @@ It returns `{mode, title, duration_s, chapters, entries, description, hint}`. Us
 
 1. If the artist is unknown and not inferable, ask the user for it.
 2. Find the album on YouTube — prefer an official/topic **playlist** or a **full-album video**. Confirm it's the right album/artist before downloading.
-3. Run: `youtube-multi-dl "<url>" -a "Y" --album "X" -o "DIR" 2>/dev/null`
+3. Run: `youtube-music-dl "<url>" -a "Y" --album "X" -o "DIR" 2>/dev/null`
 4. Parse the JSON; confirm `ok` and that each `tracks[].file` exists. Report the `directory` and any `failed` tracks to the user.
 
 ### 2. A YouTube URL/ID the user supplies

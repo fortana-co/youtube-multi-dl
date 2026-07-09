@@ -1,4 +1,4 @@
-youtube-multi-dl test video — album with STRUCTURED chapters.
+youtube-music-dl test video — album with STRUCTURED chapters.
 
 These timestamps start at 0:00, are >= 3, and each segment is >= 10s, so
 YouTube auto-generates real chapter markers that yt-dlp can read directly.

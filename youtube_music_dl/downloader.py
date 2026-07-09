@@ -25,10 +25,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, NamedTuple
 
+import jsonschema
 import yt_dlp
 
-from .schema import SCHEMA_VERSION, ErrorCode
-from .tagging import existing_files_by_id, tag_audio
+from .schema import SCHEMA_VERSION, ErrorCode, validate_chapters_file
+from .tagging import SUPPORTED_EXTENSIONS, existing_files_by_id, read_provenance, tag_audio, update_tags
 
 # yt-dlp's `extract_info`/`YoutubeDL` are effectively dynamic; treat as untyped.
 youtube_dl: Any = yt_dlp
@@ -282,10 +283,7 @@ def downloader(
 
     patterns = list(strip_patterns or [])
     if strip_meta:
-        patterns.append(rf" *-? *{re.escape(artist)} *-? *")
-        if album:
-            patterns.append(rf" *- *{re.escape(album)} *")
-            patterns.append(rf" *{re.escape(album)} *- *")
+        patterns.extend(get_strip_meta_patterns(artist, album))
 
     ctx = Ctx(
         directory=directory,
@@ -440,6 +438,57 @@ def do_chapters(url: str, top: Info, chapters_file: str, ctx: Ctx) -> tuple[list
     return results, str(normalized_path)
 
 
+def retag(directory: str, artist: str | None = None, album: str | None = None) -> dict[str, Any]:
+    """Rewrite the artist/album tags on an album's files and move its folder to match.
+
+    `directory` must be an existing album directory (the `<album>` leaf of the tool's
+    `<artist>/<album>` layout) containing .opus/.mp3 files. Does not re-download or
+    re-tag titles/track numbers. Errors if the destination already exists.
+    """
+    src = Path(os.path.expanduser(directory)).resolve()
+    if not src.is_dir():
+        raise UserError("INVALID_ARGS", f"not a directory: {src}")
+    files = sorted(p for p in src.iterdir() if p.suffix.lower() in SUPPORTED_EXTENSIONS)
+    if not files:
+        raise UserError("INVALID_ARGS", f"no .opus or .mp3 files in {src}")
+    if artist is None and album is None:
+        raise UserError("INVALID_ARGS", "provide --artist and/or --album to change")
+
+    # the tool's layout is <base>/<artist>/<album>; src is the <album> dir
+    base = src.parent.parent
+    new_artist = artist if artist is not None else src.parent.name
+    new_album = album if album is not None else src.name
+    dest = base / clean_filename(new_artist) / clean_filename(new_album)
+
+    if dest != src and dest.exists():
+        raise UserError(
+            "INVALID_ARGS",
+            f"destination already exists: {dest}. You likely already have this album there; move or remove it first.",
+        )
+
+    if dest != src:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        src.rename(dest)
+        try:  # tidy up the old artist dir if the move emptied it
+            src.parent.rmdir()
+        except OSError:
+            pass
+        files = sorted(p for p in dest.iterdir() if p.suffix.lower() in SUPPORTED_EXTENSIONS)
+
+    for f in files:
+        update_tags(f, artist=artist, album=album)
+
+    return {
+        "version": SCHEMA_VERSION,
+        "ok": True,
+        "action": "retag",
+        "artist": new_artist,
+        "album": new_album,
+        "directory": str(dest),
+        "files": [{"file": str(f), "youtube_video_id": read_provenance(f)} for f in files],
+    }
+
+
 def media_duration_s(path: Path) -> float:
     out = subprocess.check_output(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)]
@@ -520,8 +569,10 @@ def parse_chapters_file(path: str) -> list[dict[str, Any]]:
     except json.JSONDecodeError:
         log(f"\nfailed to read {path} as JSON, trying as CSV")
         return read_as_csv(path)
-    if not isinstance(data, list):
-        raise UserError("INVALID_ARGS", f"chapters file {path} must contain a JSON array of chapters")
+    try:
+        validate_chapters_file(data)  # array of {title?, start_time?, end_time?}
+    except jsonschema.ValidationError as e:
+        raise UserError("INVALID_ARGS", f"invalid chapters file {path}: {e.message}") from None
     return data
 
 
@@ -538,12 +589,23 @@ def read_as_csv(path: str) -> list[dict[str, Any]]:
     return chapters
 
 
+def get_strip_meta_patterns(artist: str, album: str = "") -> list[str]:
+    patterns = [
+        rf"^ *\d+\W*(?={re.escape(artist)})",
+        rf" *-? *{re.escape(artist)} *-? *",
+    ]
+    if album:
+        patterns.append(rf" *- *{re.escape(album)} *")
+        patterns.append(rf" *{re.escape(album)} *- *")
+    return patterns
+
+
 def strip(s: str, patterns: list[str] | None = None) -> str:
     if not patterns:
         return s
     for pattern in patterns:
         s = re.sub(pattern, "", s, flags=re.IGNORECASE)
-    return s
+    return re.sub(r"\s{2,}", " ", s).strip()
 
 
 def clean_filename(name: str) -> str:

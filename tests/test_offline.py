@@ -12,20 +12,22 @@ import jsonschema
 import pytest
 
 from tests.conftest import requires_ffmpeg
-from youtube_multi_dl import schema
-from youtube_multi_dl.downloader import (
+from youtube_music_dl import schema
+from youtube_music_dl.downloader import (
     UserError,
     clean_filename,
     detect_mode,
     downloader,
     ffmpeg_extract_segment,
+    get_strip_meta_patterns,
     media_duration_s,
     normalize_chapters,
     parse_chapters_file,
     parse_track_numbers,
+    retag,
     strip,
 )
-from youtube_multi_dl.tagging import existing_files_by_id, read_provenance, tag_audio
+from youtube_music_dl.tagging import existing_files_by_id, read_provenance, tag_audio
 
 # --- pure helpers ---------------------------------------------------------
 
@@ -45,6 +47,39 @@ def test_parse_track_numbers_invalid():
 def test_strip_removes_patterns_case_insensitively():
     assert strip("Harry Nilsson - Gotta Get Up", [r" *-? *Harry Nilsson *-? *"]).strip() == "Gotta Get Up"
     assert strip("Title", None) == "Title"
+
+
+def test_strip_collapses_and_trims_whitespace():
+    # a removal that leaves a gap must collapse to a single space, not a double
+    assert strip("A B C", [r"B"]) == "A C"
+    # leading/trailing/interior whitespace is normalized even when nothing matches
+    assert strip("  padded  title  ", [r"x"]) == "padded title"
+
+
+@pytest.mark.parametrize(
+    "raw, artist, album, expected",
+    [
+        # the strip-meta patterns drop a leading show/playlist index number that directly precedes the
+        # artist (e.g. "1310 Artist - Title" -> "Title"), plus the artist and album names themselves
+        (
+            "1310 Ernest Tubb & Red Foley - Too Old To Cut The Mustard",
+            "Ernest Tubb & Red Foley",
+            "",
+            "Too Old To Cut The Mustard",
+        ),
+        ("05 The Beatles - Yesterday", "The Beatles", "", "Yesterday"),
+        ("42 - Coldplay - Viva la Vida", "Coldplay", "", "Viva la Vida"),
+        # the artist lookahead guards it: a real title that merely begins with a number is never touched
+        ("The Smashing Pumpkins - 1979", "The Smashing Pumpkins", "", "1979"),
+        ("1979", "The Smashing Pumpkins", "", "1979"),
+        ("Nena - 99 Luftballons", "Nena", "", "99 Luftballons"),
+        ("24K Magic", "Bruno Mars", "", "24K Magic"),
+        # album names are stripped too, on either side of the title
+        ("Pink Floyd - The Wall - Mother", "Pink Floyd", "The Wall", "Mother"),
+    ],
+)
+def test_get_strip_meta_patterns(raw: str, artist: str, album: str, expected: str):
+    assert (strip(raw, get_strip_meta_patterns(artist, album)) or raw) == expected
 
 
 def test_clean_filename():
@@ -286,7 +321,7 @@ def test_probe_schema_accepts_sample():
 
 def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "youtube_multi_dl.command_line", *args], capture_output=True, text=True
+        [sys.executable, "-m", "youtube_music_dl.command_line", *args], capture_output=True, text=True
     )
 
 
@@ -294,18 +329,18 @@ def test_cli_print_schema():
     proc = _run_cli("--print-schema")
     assert proc.returncode == 0
     data = json.loads(proc.stdout)
-    assert set(data) == {"result", "error", "probe"}
+    assert set(data) == {"result", "error", "probe", "retag", "chapters_file"}
 
 
 def test_cli_print_skill():
     proc = _run_cli("--print-skill")
     assert proc.returncode == 0
     assert proc.stdout.startswith("---")
-    assert "youtube-multi-dl" in proc.stdout
+    assert "youtube-music-dl" in proc.stdout
 
 
 def test_resolve_output_path(monkeypatch):
-    from youtube_multi_dl.command_line import resolve_output_path
+    from youtube_music_dl.command_line import resolve_output_path
 
     monkeypatch.delenv("YMD_OUTPUT_DIR", raising=False)
     assert resolve_output_path("") == ""  # nothing set -> current dir
@@ -315,3 +350,108 @@ def test_resolve_output_path(monkeypatch):
     assert resolve_output_path("") == "/music"  # fall back to the env var
     assert resolve_output_path(".") == "."  # explicit -o . still wins over the env var
     assert resolve_output_path("/x") == "/x"  # any explicit path wins
+
+
+# --- chapters file JSON validation ----------------------------------------
+
+
+def test_chapters_file_schema_sample():
+    schema.validate_chapters_file([{"title": "A", "start_time": 0, "end_time": 12}])
+    schema.validate_chapters_file([{"start_time": "1:23"}])  # partial, "MM:SS" ok
+    with pytest.raises(jsonschema.ValidationError):
+        schema.validate_chapters_file([{"start_time": [1, 2]}])  # wrong type
+
+
+def test_parse_chapters_file_rejects_bad_json(tmp_path: Path):
+    good = tmp_path / "good.json"
+    good.write_text(json.dumps([{"title": "A", "start_time": "0:00"}]))
+    assert parse_chapters_file(str(good))[0]["title"] == "A"
+
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps([{"title": "A", "start": 0}]))  # 'start' should be 'start_time'
+    with pytest.raises(UserError) as e:
+        parse_chapters_file(str(bad))
+    assert e.value.code == "INVALID_ARGS"
+
+
+# --- retag ----------------------------------------------------------------
+
+
+def test_retag_schema_sample():
+    schema.validate_retag(
+        {
+            "version": schema.SCHEMA_VERSION,
+            "ok": True,
+            "action": "retag",
+            "artist": "X",
+            "album": "Y",
+            "directory": "/abs/X/Y",
+            "files": [{"file": "/abs/X/Y/01 - a.opus", "youtube_video_id": "abc"}],
+        }
+    )
+
+
+def _make_album(make_audio, base: Path, artist: str, album: str, titles: list[str]) -> Path:
+    album_dir = base / artist / album
+    album_dir.mkdir(parents=True)
+    for i, title in enumerate(titles, 1):
+        src = make_audio(f"src{i}", fmt="opus")
+        dest = album_dir / f"{i:02d} - {title}.opus"
+        src.rename(dest)
+        tag_audio(
+            dest, title=title, artist=artist, album=album, tracknumber=f"{i}/{len(titles)}", youtube_video_id=f"VID{i}"
+        )
+    return album_dir
+
+
+@requires_ffmpeg
+def test_retag_moves_and_retags(make_audio, tmp_path: Path):
+    from mutagen.oggopus import OggOpus
+
+    album = _make_album(make_audio, tmp_path, "Old Artist", "Old Album", ["A", "B"])
+    result = retag(str(album), artist="New Artist", album="New Album")
+    schema.validate_retag(result)
+
+    new_dir = tmp_path / "New Artist" / "New Album"
+    assert Path(result["directory"]) == new_dir
+    assert not album.exists()  # moved
+    assert not (tmp_path / "Old Artist").exists()  # emptied old artist dir cleaned up
+
+    files = sorted(new_dir.glob("*.opus"))
+    assert len(files) == 2
+    a = OggOpus(files[0])
+    assert a["artist"] == ["New Artist"] and a["album"] == ["New Album"]
+    assert a["title"] == ["A"] and a["tracknumber"] == ["1/2"]  # preserved
+    assert read_provenance(files[0]) == "VID1"  # provenance preserved
+
+
+@requires_ffmpeg
+def test_retag_only_album_renames_in_place(make_audio, tmp_path: Path):
+    album = _make_album(make_audio, tmp_path, "Artist", "Old Album", ["A"])
+    result = retag(str(album), album="New Album")
+    assert Path(result["directory"]) == tmp_path / "Artist" / "New Album"
+    assert result["artist"] == "Artist"  # unchanged
+
+
+@requires_ffmpeg
+def test_retag_dest_exists_errors(make_audio, tmp_path: Path):
+    album = _make_album(make_audio, tmp_path, "Artist", "Album", ["A"])
+    (tmp_path / "Artist" / "New").mkdir()  # destination already exists
+    with pytest.raises(UserError) as e:
+        retag(str(album), album="New")
+    assert e.value.code == "INVALID_ARGS"
+
+
+def test_retag_no_audio_errors(tmp_path: Path):
+    empty = tmp_path / "Artist" / "Album"
+    empty.mkdir(parents=True)
+    with pytest.raises(UserError) as e:
+        retag(str(empty), artist="X")
+    assert e.value.code == "INVALID_ARGS"
+
+
+def test_cli_retag_dispatch_errors_cleanly():
+    proc = _run_cli("retag", "/definitely/not/here")
+    assert proc.returncode == 1
+    err = json.loads(proc.stdout)
+    assert err["ok"] is False and err["error"]["code"] == "INVALID_ARGS"

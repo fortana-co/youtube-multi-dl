@@ -4,7 +4,7 @@ Command-line entry point.
 Contract for programmatic/agent use:
 
 - Exactly one JSON object is written to **stdout**. All logging/progress goes to
-  **stderr**. So `youtube-multi-dl ... 2>/dev/null | jq` yields clean JSON.
+  **stderr**. So `youtube-music-dl ... 2>/dev/null | jq` yields clean JSON.
 - On success stdout conforms to `schema.RESULT_SCHEMA`; on a fatal error it
   conforms to `schema.ERROR_SCHEMA`.
 - Exit codes: `0` = all tracks downloaded/skipped, `2` = some tracks failed
@@ -23,25 +23,28 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader, probe_urls
+from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader, probe_urls, retag
 from .schema import (
+    CHAPTERS_FILE_SCHEMA,
     ERROR_SCHEMA,
     PROBE_SCHEMA,
     RESULT_SCHEMA,
+    RETAG_SCHEMA,
     ErrorCode,
     make_error,
     validate_error,
     validate_probe,
     validate_result,
+    validate_retag,
 )
 
 if sys.version_info < (3, 12):
-    sys.exit("you need at least python3.12 to run youtube-multi-dl")
+    sys.exit("you need at least python3.12 to run youtube-music-dl")
 
 
 def get_version() -> str:
     try:
-        return version("youtube-multi-dl")
+        return version("youtube-music-dl")
     except PackageNotFoundError:
         return "0.0.0"
 
@@ -61,16 +64,16 @@ def resolve_output_path(cli_value: str) -> str:
 
 def read_skill() -> str:
     """Return the SKILL.md text. Packaged with the wheel; falls back to the repo in dev."""
-    packaged = files("youtube_multi_dl").joinpath("SKILL.md")
+    packaged = files("youtube_music_dl").joinpath("SKILL.md")
     if packaged.is_file():
         return packaged.read_text(encoding="utf-8")
-    dev = Path(__file__).resolve().parent.parent / "skills" / "youtube-multi-dl" / "SKILL.md"
+    dev = Path(__file__).resolve().parent.parent / "skills" / "youtube-music-dl" / "SKILL.md"
     return dev.read_text(encoding="utf-8")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="youtube-multi-dl",
+        prog="youtube-music-dl",
         description="Download and label albums/playlists from YouTube. Emits JSON on stdout; logs on stderr.",
     )
     parser.add_argument("-v", "--version", action="store_true", help="print version and exit")
@@ -116,6 +119,30 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_retag_parser() -> argparse.ArgumentParser:
+    return argparse.ArgumentParser(
+        prog="youtube-music-dl retag",
+        description="Retag an album's artist/album and move its folder to match, without re-downloading.",
+    )
+
+
+def main_retag(argv: list[str]) -> None:
+    parser = build_retag_parser()
+    parser.add_argument("directory", help="existing album directory containing .opus/.mp3 files")
+    parser.add_argument("-a", "--artist", help="new artist")
+    parser.add_argument("--album", help="new album")
+    args = parser.parse_args(argv)
+    try:
+        result = retag(directory=args.directory, artist=args.artist, album=args.album)
+    except UserError as e:
+        fail(e.code, str(e))
+    except KeyboardInterrupt:
+        fail("INTERRUPTED", "interrupted")
+    validate_retag(result)
+    emit(result)
+    sys.exit(0)
+
+
 def preflight(need_ffmpeg: bool = True) -> tuple[ErrorCode, str] | None:
     missing = [b for b in ("ffmpeg", "ffprobe") if not shutil.which(b)]
     if need_ffmpeg and missing:
@@ -132,7 +159,7 @@ def preflight(need_ffmpeg: bool = True) -> tuple[ErrorCode, str] | None:
 
 
 def emit(obj: dict[str, Any]) -> None:
-    print(json.dumps(obj, indent=2))
+    print(json.dumps(obj, indent=2, ensure_ascii=False))  # keep accents readable (e.g. "García")
 
 
 def fail(code: ErrorCode, message: str) -> None:
@@ -143,6 +170,12 @@ def fail(code: ErrorCode, message: str) -> None:
 
 
 def main() -> None:
+    argv = sys.argv[1:]
+    if argv and argv[0] == "retag":
+        # "retag" can't be a URL or an 11-char video id, so this dispatch is unambiguous
+        main_retag(argv[1:])
+        return
+
     parser = build_parser()
     args = parser.parse_args()
 
@@ -153,7 +186,15 @@ def main() -> None:
         print(read_skill().strip())
         sys.exit(0)
     if args.print_schema:
-        emit({"result": RESULT_SCHEMA, "error": ERROR_SCHEMA, "probe": PROBE_SCHEMA})
+        emit(
+            {
+                "result": RESULT_SCHEMA,
+                "error": ERROR_SCHEMA,
+                "probe": PROBE_SCHEMA,
+                "retag": RETAG_SCHEMA,
+                "chapters_file": CHAPTERS_FILE_SCHEMA,
+            }
+        )
         sys.exit(0)
     if not args.url:
         parser.error("at least one url is required")

@@ -1,4 +1,4 @@
-youtube-multi-dl test video — album with an UNSTRUCTURED tracklist.
+youtube-music-dl test video — album with an UNSTRUCTURED tracklist.
 
 This lists per-track DURATIONS (not cumulative timestamps) and does not start
 with 0:00, so YouTube will NOT auto-generate chapters. yt-dlp sees zero chapters.

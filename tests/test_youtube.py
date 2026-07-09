@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import HAS_FFMPEG, load_youtube_fixtures
-from youtube_multi_dl import schema
+from youtube_music_dl import schema
 
 FIXTURES = load_youtube_fixtures()
 pytestmark = [
@@ -24,7 +24,7 @@ pytestmark = [
 def run_cli(*args: str, cwd: Path) -> tuple[int, dict]:
     """Run the CLI, returning (exit_code, parsed stdout JSON). Logs go to stderr."""
     proc = subprocess.run(
-        [sys.executable, "-m", "youtube_multi_dl.command_line", *args],
+        [sys.executable, "-m", "youtube_music_dl.command_line", *args],
         cwd=str(cwd),
         capture_output=True,
         text=True,

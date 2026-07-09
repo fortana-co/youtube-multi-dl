@@ -54,6 +54,26 @@ def tag_audio(
     audio.save(str(path))
 
 
+def update_tags(path: Path, *, artist: str | None = None, album: str | None = None) -> None:
+    """Change only the artist and/or album, leaving title, track number, and provenance intact."""
+    ext = path.suffix.lower()
+    if ext == ".mp3":
+        try:
+            audio = EasyID3(str(path))
+        except ID3NoHeaderError:
+            audio = EasyID3()
+    elif ext == ".opus":
+        audio = OggOpus(str(path))
+    else:
+        raise ValueError(f"unsupported audio extension for tagging: {ext}")
+
+    if artist is not None:
+        audio["artist"] = artist
+    if album is not None:
+        audio["album"] = album
+    audio.save(str(path))
+
+
 def read_provenance(path: Path) -> str | None:
     """Return the `youtube_video_id` tag from an audio file, or None."""
     ext = path.suffix.lower()

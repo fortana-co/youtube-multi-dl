@@ -1,5 +1,5 @@
 """
-JSON Schemas for the youtube-multi-dl CLI, plus validation helpers.
+JSON Schemas for the youtube-music-dl CLI, plus validation helpers.
 
 The CLI writes exactly one JSON object to stdout (all human/progress logging goes
 to stderr). On success that object conforms to `RESULT_SCHEMA`; on a fatal
@@ -41,7 +41,7 @@ TRACK_SCHEMA: dict[str, Any] = {
 }
 
 RESULT_SCHEMA: dict[str, Any] = {
-    "title": "youtube-multi-dl result",
+    "title": "youtube-music-dl result",
     "type": "object",
     "additionalProperties": False,
     "required": ["version", "ok", "mode", "album", "artist", "directory", "format", "chapters_file", "tracks"],
@@ -62,7 +62,7 @@ RESULT_SCHEMA: dict[str, Any] = {
 }
 
 ERROR_SCHEMA: dict[str, Any] = {
-    "title": "youtube-multi-dl error",
+    "title": "youtube-music-dl error",
     "type": "object",
     "additionalProperties": False,
     "required": ["version", "ok", "error"],
@@ -108,7 +108,7 @@ PROBE_ENTRY_SCHEMA: dict[str, Any] = {
 }
 
 PROBE_SCHEMA: dict[str, Any] = {
-    "title": "youtube-multi-dl probe",
+    "title": "youtube-music-dl probe",
     "type": "object",
     "additionalProperties": False,
     "required": ["version", "kind", "mode", "title", "duration_s", "chapters", "entries", "description", "hint"],
@@ -130,8 +130,69 @@ PROBE_SCHEMA: dict[str, Any] = {
 }
 
 
+# --- chapters file (input) ---------------------------------------------------
+# The JSON form of a --chapters-file: an array of chapters. Times are seconds or
+# "MM:SS"/"HH:MM:SS" strings. All fields are optional (a missing title becomes the
+# track number; a missing start/end is inferred from neighbours / the true
+# duration), but unknown keys are rejected to catch mistakes like "start" for
+# "start_time". CSV files are not covered by this schema.
+
+CHAPTERS_FILE_SCHEMA: dict[str, Any] = {
+    "title": "youtube-music-dl chapters file",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string"},
+            "start_time": {"type": ["number", "string"]},
+            "end_time": {"type": ["number", "string"]},
+        },
+    },
+}
+
+
+# --- retag output ------------------------------------------------------------
+# `retag <dir>` rewrites the artist/album tags on an album's files and moves the
+# folder to match, without re-downloading.
+
+RETAG_FILE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["file", "youtube_video_id"],
+    "properties": {
+        "file": {"type": "string"},
+        "youtube_video_id": {"type": ["string", "null"]},
+    },
+}
+
+RETAG_SCHEMA: dict[str, Any] = {
+    "title": "youtube-music-dl retag result",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["version", "ok", "action", "artist", "album", "directory", "files"],
+    "properties": {
+        "version": {"const": SCHEMA_VERSION},
+        "ok": {"const": True},
+        "action": {"const": "retag"},
+        "artist": {"type": "string"},
+        "album": {"type": "string"},
+        "directory": {"type": "string", "description": "absolute path to the (possibly moved) album directory"},
+        "files": {"type": "array", "items": RETAG_FILE_SCHEMA},
+    },
+}
+
+
 def validate_result(obj: dict[str, Any]) -> None:
     jsonschema.validate(obj, RESULT_SCHEMA)
+
+
+def validate_chapters_file(obj: Any) -> None:
+    jsonschema.validate(obj, CHAPTERS_FILE_SCHEMA)
+
+
+def validate_retag(obj: dict[str, Any]) -> None:
+    jsonschema.validate(obj, RETAG_SCHEMA)
 
 
 def validate_probe(obj: dict[str, Any]) -> None:

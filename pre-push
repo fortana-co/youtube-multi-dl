@@ -5,4 +5,5 @@
 uv run ruff format --check .
 uv run ruff check .
 uv run pyright
-uv run pytest
+# skip the `youtube`-marked tests that download real tracks from YouTube
+uv run pytest -m "not youtube"
