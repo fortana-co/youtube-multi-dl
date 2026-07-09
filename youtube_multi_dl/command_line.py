@@ -15,6 +15,7 @@ Contract for programmatic/agent use:
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -43,6 +44,19 @@ def get_version() -> str:
         return version("youtube-multi-dl")
     except PackageNotFoundError:
         return "0.0.0"
+
+
+OUTPUT_DIR_ENV = "YMD_OUTPUT_DIR"
+
+
+def resolve_output_path(cli_value: str) -> str:
+    """
+    Resolve where the album directory goes.
+
+    Precedence: an explicit `-o` wins; otherwise fall back to ``$YMD_OUTPUT_DIR``; otherwise `""` (the current
+    directory).
+    """
+    return cli_value or os.environ.get(OUTPUT_DIR_ENV, "")
 
 
 def read_skill() -> str:
@@ -92,7 +106,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="audio quality; a bitrate like 160K, or 0-9 VBR for mp3. Omit for opus to avoid re-encoding.",
     )
     parser.add_argument("--chapters-file", default="", help="JSON or CSV file of chapters to split a single video by")
-    parser.add_argument("-o", "--output-path", default="", help="directory in which the album directory is created")
+    parser.add_argument(
+        "-o",
+        "--output-path",
+        default="",
+        help=f"directory in which the album directory is created; defaults to ${OUTPUT_DIR_ENV}, else the current dir",
+    )
     parser.add_argument("--force", action="store_true", help="re-download even if a track is already present")
     return parser
 
@@ -172,7 +191,7 @@ def main() -> None:
             audio_format=args.audio_format,
             audio_quality=args.audio_quality,
             chapters_file=args.chapters_file,
-            output_path=args.output_path,
+            output_path=resolve_output_path(args.output_path),
             track_numbers=args.track_numbers,
             force=args.force,
         )

@@ -28,10 +28,10 @@ youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
 
 `youtube-multi-dl` needs a few system binaries (used by `yt-dlp`):
 
-- **[FFmpeg](https://www.ffmpeg.org/)** and `ffprobe` to convert and split audio.
+- **[FFmpeg](https://www.ffmpeg.org/)** and `ffprobe` to convert and split audio
   - **macOS**: `brew install ffmpeg`
   - **Ubuntu**: `sudo apt install ffmpeg`
-- **A JavaScript runtime**: modern YouTube requires one for extraction. [Deno](https://deno.com/) is recommended (Node also works).
+- **A JavaScript runtime**: modern YouTube requires one for extraction; [Deno](https://deno.com/) is recommended (Node also works)
   - **macOS**: `brew install deno`
   - **Ubuntu**: [see Deno install docs](https://docs.deno.com/runtime/getting_started/installation/)
 
@@ -65,12 +65,12 @@ It prints **one JSON object to stdout** (logs go to stderr), so `youtube-multi-d
 - `--album`: required for single-song URLs; otherwise defaults to the playlist/video title
 - `-p`, `--playlist-items`: playlist items to download; e.g. "1,3-5,7-9,11,12"
 - `-t`, `--track-numbers`: track numbers to assign; must be the same length as the items
-- `-s`, `--strip-patterns` : extra regex patterns to remove from title(s)
+- `-s`, `--strip-patterns` : extra regex patterns to remove from titles
 - `--no-strip-meta`: don't strip the artist/album out of titles
-- `-f`, `--audio-format`: **{opus,mp3}**; default `opus`; Opus is copied from YouTube's stream without re-encoding when possible; mp3 is for maximum device compatibility.
-- `-q`, `--audio-quality`: a bitrate like `160K`, or `0`–`9` VBR for mp3. Omit for opus to avoid re-encoding (recommended).
+- `-f`, `--audio-format`: **{opus,mp3}**; default `opus`; Opus is copied from YouTube's stream without re-encoding when possible; mp3 is for maximum device compatibility
+- `-q`, `--audio-quality`: a bitrate like `160K`, or `0`–`9` VBR for mp3; Omit for opus to avoid re-encoding (recommended)
 - `--chapters-file`: JSON or CSV file of chapters used to split a single video at custom timestamps; [see these examples](./examples/chapters_file)
-- `-o`, `--output-path`: directory in which the album directory is created, default current dir
+- `-o`, `--output-path`: directory in which the album directory is created; Precedence: this flag (even `-o .`) → the `YMD_OUTPUT_DIR` env var → the current directory
 - `--force`: re-download tracks even if they're already present
 - `--probe`: print what a real run *would* do (mode, chapters, description) as JSON, **without downloading** — useful for deciding whether an album video needs a `--chapters-file`
 - `--print-schema` / `--print-skill`: print the JSON Schemas / the agent skill and exit
@@ -79,20 +79,16 @@ It prints **one JSON object to stdout** (logs go to stderr), so `youtube-multi-d
 
 Tracks land at `<artist>/<album>/NN - Title.ext` (e.g. `Harry Nilsson/Nilsson Schmilsson/01 - Gotta Get Up.opus`), named cleanly and in order. The artist/album is stripped out of both the **title tag** (what your player shows) and the filename. The source video is not lost: it's stored in a `youtube_video_id` tag on each file (yt-dlp also embeds the source URL), which is how re-runs know what's already been downloaded.
 
+### Env vars
+
+- `YMD_OUTPUT_DIR`: default output directory
+  - E.g. set `export YMD_OUTPUT_DIR="$HOME/Music"`
+
 ## Use with AI agents
 
-Because the CLI is non-interactive and emits schema-stable JSON, an agent can drive it directly. E.g. "download this album by this artist to `~/Music`", a YouTube URL, or a CSV of albums to fetch one by one. This repo ships a [skill](skills/youtube-multi-dl/SKILL.md) that teaches an agent the workflows, the output schema, and the error codes.
+Because the CLI is non-interactive and emits schema-stable JSON, an agent can drive it directly. E.g. "download this album by this artist to `~/Music`", a YouTube URL, or a CSV of albums to fetch one by one. This repo ships a [skill](skills/youtube-multi-dl/SKILL.md) that teaches an agent the workflows, the output schema, and the error codes. To use this skill with an agent, copy or symlink it into your agent's skills directory.
 
 The CLI is self-describing, so an agent needs no filesystem paths: `--print-skill` prints the skill, `--print-schema` prints the JSON Schemas, and `--probe <url>` reports the detected mode (playlist / chaptered video / single song) and the video description **without downloading** — which is how an agent decides whether a "full album" video needs a generated `--chapters-file`.
-
-E.g. for Claude Code, copy or symlink the skill into your skills directory:
-
-```sh
-mkdir -p ~/.claude/skills/youtube-multi-dl
-ln -s "$(pwd)/skills/youtube-multi-dl/SKILL.md" ~/.claude/skills/youtube-multi-dl/SKILL.md
-```
-
-The skill is plain Markdown, so it works with other agent harnesses (e.g. Codex) too. Point your tool at `skills/youtube-multi-dl/SKILL.md`.
 
 ## Contributing
 
@@ -150,4 +146,4 @@ This code is licensed under the [MIT License](https://opensource.org/licenses/MI
 
 ## Thanks
 
-To the maintainers of **yt-dlp**, [Mutagen](https://github.com/quodlibet/mutagen) and **FFmpeg**, and to anyone who doesn't want every last song to disappear behind ads or a paywall.
+To the maintainers of **yt-dlp**, [Mutagen](https://github.com/quodlibet/mutagen) and **FFmpeg**, and to anyone who doesn't want all that sweet music to go behind ads or a paywall.
