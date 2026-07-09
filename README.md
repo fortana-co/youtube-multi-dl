@@ -66,11 +66,14 @@ It prints **one JSON object to stdout** (logs go to stderr), so `youtube-multi-d
 - `-p`, `--playlist-items`: playlist items to download; e.g. "1,3-5,7-9,11,12"
 - `-t`, `--track-numbers`: track numbers to assign; must be the same length as the items
 - `-s`, `--strip-patterns` : extra regex patterns to remove from title(s)
+- `--no-strip-meta`: don't strip the artist/album out of titles
 - `-f`, `--audio-format`: **{opus,mp3}**; default `opus`; Opus is copied from YouTube's stream without re-encoding when possible; mp3 is for maximum device compatibility.
 - `-q`, `--audio-quality`: a bitrate like `160K`, or `0`–`9` VBR for mp3. Omit for opus to avoid re-encoding (recommended).
 - `--chapters-file`: JSON or CSV file of chapters used to split a single video at custom timestamps; [see these examples](./examples/chapters_file)
 - `-o`, `--output-path`: directory in which the album directory is created, default current dir
 - `--force`: re-download tracks even if they're already present
+- `--probe`: print what a real run *would* do (mode, chapters, description) as JSON, **without downloading** — useful for deciding whether an album video needs a `--chapters-file`
+- `--print-schema` / `--print-skill`: print the JSON Schemas / the agent skill and exit
 
 ### File names and tags
 
@@ -79,6 +82,8 @@ Tracks land at `<artist>/<album>/NN - Title.ext` (e.g. `Harry Nilsson/Nilsson Sc
 ## Use with AI agents
 
 Because the CLI is non-interactive and emits schema-stable JSON, an agent can drive it directly. E.g. "download this album by this artist to `~/Music`", a YouTube URL, or a CSV of albums to fetch one by one. This repo ships a [skill](skills/youtube-multi-dl/SKILL.md) that teaches an agent the workflows, the output schema, and the error codes.
+
+The CLI is self-describing, so an agent needs no filesystem paths: `--print-skill` prints the skill, `--print-schema` prints the JSON Schemas, and `--probe <url>` reports the detected mode (playlist / chaptered video / single song) and the video description **without downloading** — which is how an agent decides whether a "full album" video needs a generated `--chapters-file`.
 
 E.g. for Claude Code, copy or symlink the skill into your skills directory:
 
@@ -103,13 +108,15 @@ uv sync
 
 By default this creates a virtual environment at `.venv` in the repo root (the standard location `uv` uses) and installs all dependencies into it, including dev tools (`ruff`, `pyright`). `pyrightconfig.json` points `pyright` at this `.venv`, so type checking can resolve `yt-dlp`, `mutagen`, and the other deps without any extra configuration.
 
-Run tools inside the environment with `uv run` (e.g. `uv run pyright`), or activate it with `source .venv/bin/activate`.
+`uv sync` installs the project as an **editable** install in `.venv`, so running it through `uv run` always reflects your latest code — no reinstall step:
 
-See `main.py` in the root of the repo? This script makes it easy to test the package. It ensures **youtube-multi-dl** can be invoked from the command line, without going through the shim created when the package is installed.
+```sh
+uv run youtube-multi-dl SDeuYY3Hi_I -a "Pharoah Sanders"
+```
 
-For example, from the root of the repo, just run `uv run main.py SDeuYY3Hi_I -a "Pharoah Sanders"`.
+Note that `python -m youtube_multi_dl.command_line ...` works too. Run other tools the same way with `uv run`, e.g. `uv run pyright`, or activate the environment with `source .venv/bin/activate`.
 
-Run `cd .git/hooks && ln -s -f ../../pre-push` to add the `pre-push` hook to ensure you can't push anything that doesn't pass ruff and pyright checks.
+Run `cd .git/hooks && ln -s -f ../../pre-push` to add the `pre-push` hook to ensure you can't push anything that doesn't pass ruff, pyright and pytest.
 
 ### Style
 
@@ -118,7 +125,7 @@ Uses [ruff](https://docs.astral.sh/ruff/) for formatting, linting, and import so
 - `uv run ruff format .` to format source files in place
 - `uv run ruff check .` to lint (add `--fix` to auto-fix)
 - `uv run pyright` to type-check
-- `uv run pytest` to type-check
+- `uv run pytest` to run the tests
 
 ### Release/Deploy to PyPI
 
@@ -129,9 +136,13 @@ uv publish
 
 ### Install locally
 
+To put a `youtube-multi-dl` command on your PATH that **tracks the repo** — so it always picks up later code edits — install it editable:
+
 ```sh
-uv tool install .
+uv tool install --editable .
 ```
+
+Plain `uv tool install .` snapshots the current code instead, so you'd have to re-run `uv tool install . --reinstall` after every edit. Also, remember that you can skip install and simply do `uv run youtube-multi-dl ...`, which always reflects the latest code.
 
 ## License
 

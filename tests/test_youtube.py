@@ -40,6 +40,23 @@ def _need(key: str) -> str:
     return value
 
 
+def test_probe_detects_modes(tmp_path: Path):
+    struct = _need("structured_chapters_video_id")
+    code, r = run_cli("--probe", struct, cwd=tmp_path)
+    schema.validate_probe(r)
+    assert code == 0 and r["mode"] == "chapters" and len(r["chapters"]) == 3
+
+    unstruct = _need("unstructured_tracklist_video_id")
+    code, r = run_cli("--probe", unstruct, cwd=tmp_path)
+    schema.validate_probe(r)
+    assert code == 0 and r["mode"] == "single_songs" and r["chapters"] == [] and r["description"]
+
+    playlist = _need("playlist_url")
+    code, r = run_cli("--probe", playlist, cwd=tmp_path)
+    schema.validate_probe(r)
+    assert code == 0 and r["mode"] == "playlist" and len(r["entries"]) == 2
+
+
 def test_playlist(tmp_path: Path):
     url = _need("playlist_url")
     code, result = run_cli(url, "-a", "Test Artist", "--album", "ymd playlist", "-o", str(tmp_path), cwd=tmp_path)

@@ -4,6 +4,8 @@ access.
 """
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import jsonschema
@@ -14,6 +16,7 @@ from youtube_multi_dl import schema
 from youtube_multi_dl.downloader import (
     UserError,
     clean_filename,
+    detect_mode,
     downloader,
     ffmpeg_extract_segment,
     media_duration_s,
@@ -251,3 +254,51 @@ def test_error_schema_roundtrip():
     err = schema.make_error("NO_JS_RUNTIME", "install deno or node")
     schema.validate_error(err)
     assert err["ok"] is False and err["error"]["code"] == "NO_JS_RUNTIME"
+
+
+# --- mode detection + probe (no network) ----------------------------------
+
+
+def test_detect_mode():
+    assert detect_mode({"extractor": "youtube", "chapters": [{"start_time": 0}]}, has_chapters_file=False) == "chapters"
+    assert detect_mode({"extractor": "youtube"}, has_chapters_file=True) == "chapters"
+    assert detect_mode({"extractor": "youtube"}, has_chapters_file=False) == "single_songs"
+    assert detect_mode({"extractor": "youtube:tab"}, has_chapters_file=False) == "playlist"
+
+
+def test_probe_schema_accepts_sample():
+    sample = {
+        "version": schema.SCHEMA_VERSION,
+        "kind": "probe",
+        "mode": "single_songs",
+        "title": "Some Full Album",
+        "duration_s": 2038,
+        "chapters": [],
+        "entries": [],
+        "description": "1. Song A [2:24]\n2. Song B [2:02]",
+        "hint": "single video with no chapters",
+    }
+    schema.validate_probe(sample)
+
+
+# --- self-describing CLI flags (subprocess, no network) -------------------
+
+
+def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "youtube_multi_dl.command_line", *args], capture_output=True, text=True
+    )
+
+
+def test_cli_print_schema():
+    proc = _run_cli("--print-schema")
+    assert proc.returncode == 0
+    data = json.loads(proc.stdout)
+    assert set(data) == {"result", "error", "probe"}
+
+
+def test_cli_print_skill():
+    proc = _run_cli("--print-skill")
+    assert proc.returncode == 0
+    assert proc.stdout.startswith("---")
+    assert "youtube-multi-dl" in proc.stdout

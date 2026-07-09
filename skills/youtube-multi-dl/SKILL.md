@@ -22,7 +22,7 @@ If a required binary is missing the CLI exits `1` with an error object whose `er
 - **Exit codes:** `0` = every track downloaded or already present; `2` = some tracks failed (a result object is still emitted — inspect per-track `status`); `1` = fatal error (an error object with a stable `error.code`).
 - **Idempotent:** re-running skips tracks already present (matched by the `youtube_video_id` tag). Pass `--force` to re-download.
 
-Success object (see the project's `schema.py` for the authoritative JSON Schema):
+Success object (run `youtube-multi-dl --print-schema` for the authoritative JSON Schemas of the result, error, and probe outputs):
 
 ```json
 {
@@ -47,8 +47,24 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 - `-f/--audio-format {opus,mp3}`: default `opus`
 - `-o/--output-path DIR`: an `<artist>/<album>/` directory is created inside DIR
 - `--chapters-file FILE.json`: split a single video at custom timestamps
+- `--probe`: report what a real run *would* do (mode, chapters, description) **without downloading**
+- `--print-schema` / `--print-skill`: print the JSON Schemas / this document
 
 See all command line options by running `youtube-multi-dl -h`.
+
+## Decide the mode with `--probe` (do this for a single video)
+
+For a bare URL/ID you're unsure about, probe first — it inspects without downloading:
+
+```sh
+youtube-multi-dl --probe "<url>" 2>/dev/null
+```
+
+It returns `{mode, title, duration_s, chapters, entries, description, hint}`. Use it to pick the workflow:
+
+- `mode: "playlist"` → just download it (workflow 2).
+- `mode: "chapters"` (non-empty `chapters`) → download it; it auto-splits (workflow 2).
+- `mode: "single_songs"` → **decide**: if it's genuinely one song, download with `--album`; if the `description` reveals it's a full album (a tracklist with timestamps/durations), build a `--chapters-file` from that description and run (workflow 3). Downloading without a chapters file would save the whole video as one track.
 
 ## Workflows
 
@@ -69,7 +85,7 @@ Run directly with `-a`. The tool auto-detects the mode:
 
 ### 3. A single "album" video whose songs are only in the description
 
-If a full-album video has **no chapters** but the description lists the tracks, build a chapters file and pass it with `--chapters-file`:
+`--probe` reports this case as `mode: "single_songs"` with an empty `chapters` array but a `description` containing a tracklist. Build a chapters file from that description and pass it with `--chapters-file`:
 
 - Parse the tracklist. If it gives **cumulative timestamps** (`0:00 Song A`), use them as `start_time`. If it gives **durations** (`Song A [2:24]`), **accumulate** them into cumulative start times (first at 0).
 - Write JSON: `[{"title": "Song A", "start_time": 0}, {"title": "Song B", "start_time": 144}, …]` (`end_time` is optional; omit it and each track runs to the next start, the last to the true end). CSV `title,start_time,end_time` per row also works.

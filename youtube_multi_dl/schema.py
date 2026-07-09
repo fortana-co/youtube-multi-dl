@@ -82,8 +82,60 @@ ERROR_SCHEMA: dict[str, Any] = {
 }
 
 
+# --- probe (dry-run) output --------------------------------------------------
+# `--probe` reports what a real run *would* do for a URL, without downloading, so
+# an agent can decide (e.g. build a --chapters-file for an album video whose
+# tracklist is only in the description) before committing to a download.
+
+PROBE_CHAPTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": ["string", "null"]},
+        "start_time": {"type": ["number", "string", "null"]},
+        "end_time": {"type": ["number", "string", "null"]},
+    },
+}
+
+PROBE_ENTRY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["index", "youtube_video_id", "title"],
+    "properties": {
+        "index": {"type": "integer", "minimum": 1},
+        "youtube_video_id": {"type": ["string", "null"]},
+        "title": {"type": "string"},
+    },
+}
+
+PROBE_SCHEMA: dict[str, Any] = {
+    "title": "youtube-multi-dl probe",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["version", "kind", "mode", "title", "duration_s", "chapters", "entries", "description", "hint"],
+    "properties": {
+        "version": {"const": SCHEMA_VERSION},
+        "kind": {"const": "probe"},
+        "mode": {"enum": ["playlist", "single_songs", "chapters"]},
+        "title": {"type": ["string", "null"]},
+        "duration_s": {"type": ["number", "null"], "description": "length of a single video, else null"},
+        "chapters": {
+            "type": "array",
+            "items": PROBE_CHAPTER_SCHEMA,
+            "description": "chapters detected in a single video",
+        },
+        "entries": {"type": "array", "items": PROBE_ENTRY_SCHEMA, "description": "playlist entries, else empty"},
+        "description": {"type": ["string", "null"], "description": "video description (parse it for a tracklist)"},
+        "hint": {"type": "string", "description": "what a real run would do, and what to consider"},
+    },
+}
+
+
 def validate_result(obj: dict[str, Any]) -> None:
     jsonschema.validate(obj, RESULT_SCHEMA)
+
+
+def validate_probe(obj: dict[str, Any]) -> None:
+    jsonschema.validate(obj, PROBE_SCHEMA)
 
 
 def validate_error(obj: dict[str, Any]) -> None:

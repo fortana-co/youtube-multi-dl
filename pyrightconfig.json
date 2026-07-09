@@ -1,5 +1,5 @@
 {
-  "include": ["main.py", "youtube_multi_dl", "tests"],
+  "include": ["youtube_multi_dl", "tests"],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.12",

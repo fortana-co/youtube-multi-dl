@@ -18,10 +18,21 @@ import json
 import shutil
 import sys
 from importlib.metadata import PackageNotFoundError, version
+from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
-from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader
-from .schema import ErrorCode, make_error, validate_error, validate_result
+from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader, probe_urls
+from .schema import (
+    ERROR_SCHEMA,
+    PROBE_SCHEMA,
+    RESULT_SCHEMA,
+    ErrorCode,
+    make_error,
+    validate_error,
+    validate_probe,
+    validate_result,
+)
 
 if sys.version_info < (3, 12):
     sys.exit("you need at least python3.12 to run youtube-multi-dl")
@@ -34,12 +45,28 @@ def get_version() -> str:
         return "0.0.0"
 
 
+def read_skill() -> str:
+    """Return the SKILL.md text. Packaged with the wheel; falls back to the repo in dev."""
+    packaged = files("youtube_multi_dl").joinpath("SKILL.md")
+    if packaged.is_file():
+        return packaged.read_text(encoding="utf-8")
+    dev = Path(__file__).resolve().parent.parent / "skills" / "youtube-multi-dl" / "SKILL.md"
+    return dev.read_text(encoding="utf-8")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="youtube-multi-dl",
         description="Download and label albums/playlists from YouTube. Emits JSON on stdout; logs on stderr.",
     )
     parser.add_argument("-v", "--version", action="store_true", help="print version and exit")
+    parser.add_argument("--print-skill", action="store_true", help="print the agent skill (SKILL.md) and exit")
+    parser.add_argument("--print-schema", action="store_true", help="print the JSON Schemas for the output and exit")
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="report what a real run would do for the URL (mode, chapters, description) without downloading",
+    )
     parser.add_argument(
         "url", nargs="*", help="URL/ID of a YouTube playlist, a video with chapters, or one or more single-song URLs"
     )
@@ -70,9 +97,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def preflight() -> tuple[ErrorCode, str] | None:
+def preflight(need_ffmpeg: bool = True) -> tuple[ErrorCode, str] | None:
     missing = [b for b in ("ffmpeg", "ffprobe") if not shutil.which(b)]
-    if missing:
+    if need_ffmpeg and missing:
         return (
             "NO_FFMPEG",
             f"missing required binaries: {', '.join(missing)}. Install ffmpeg (e.g. `brew install ffmpeg`).",
@@ -103,8 +130,30 @@ def main() -> None:
     if args.version:
         emit({"version": get_version()})
         sys.exit(0)
+    if args.print_skill:
+        print(read_skill().strip())
+        sys.exit(0)
+    if args.print_schema:
+        emit({"result": RESULT_SCHEMA, "error": ERROR_SCHEMA, "probe": PROBE_SCHEMA})
+        sys.exit(0)
     if not args.url:
         parser.error("at least one url is required")
+
+    if args.probe:
+        # probe only inspects (no download), so it doesn't need ffmpeg
+        precondition = preflight(need_ffmpeg=False)
+        if precondition is not None:
+            fail(*precondition)
+        try:
+            info = probe_urls(args.url, chapters_file=args.chapters_file)
+        except UserError as e:
+            fail(e.code, str(e))
+        except KeyboardInterrupt:
+            fail("INTERRUPTED", "interrupted")
+        validate_probe(info)
+        emit(info)
+        sys.exit(0)
+
     if not args.artist:
         parser.error("the following argument is required: -a/--artist")
 

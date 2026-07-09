@@ -185,6 +185,61 @@ def video_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
+def detect_mode(top: Info, has_chapters_file: bool) -> str:
+    """Decide how a URL would be handled: single video (single_songs/chapters) vs playlist."""
+    is_single_video = top.get("extractor") == "youtube"
+    if is_single_video and not top.get("chapters") and not has_chapters_file:
+        return "single_songs"
+    if is_single_video:
+        return "chapters"
+    return "playlist"
+
+
+def probe_hint(mode: str, has_chapters_file: bool) -> str:
+    if mode == "single_songs":
+        return (
+            "Single video with no chapters. If this is a full album, its tracks may be listed in the "
+            "description (with timestamps or durations) — build a --chapters-file from it and re-run, or the "
+            "whole video is downloaded as one track. If it really is one song, pass --album."
+        )
+    if mode == "chapters":
+        return (
+            "Will split this single video with the provided --chapters-file."
+            if has_chapters_file
+            else "This video has chapters; it will be split into one track per chapter automatically."
+        )
+    return "This is a playlist; each entry becomes a track."
+
+
+def probe_urls(urls: list[str], chapters_file: str = "") -> dict[str, Any]:
+    """Report what a real run would do for a URL, without downloading (the `--probe` mode)."""
+    top = probe(urls[0], probe_opts())
+    if not top:
+        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}")
+
+    mode = detect_mode(top, has_chapters_file=bool(chapters_file))
+    entries: list[dict[str, Any]] = []
+    if mode == "playlist":
+        for i, entry in enumerate(top.get("entries") or [], start=1):
+            if entry:
+                entries.append({"index": i, "youtube_video_id": entry.get("id"), "title": entry.get("title") or ""})
+
+    return {
+        "version": SCHEMA_VERSION,
+        "kind": "probe",
+        "mode": mode,
+        "title": top.get("title"),
+        "duration_s": top.get("duration") if mode != "playlist" else None,
+        "chapters": [
+            {"title": c.get("title"), "start_time": c.get("start_time"), "end_time": c.get("end_time")}
+            for c in (top.get("chapters") or [])
+        ],
+        "entries": entries,
+        "description": top.get("description") if mode != "playlist" else None,
+        "hint": probe_hint(mode, bool(chapters_file)),
+    }
+
+
 def downloader(
     urls: list[str],
     artist: str = "",
@@ -214,14 +269,7 @@ def downloader(
     if not top:
         raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}")
 
-    is_single_video = top.get("extractor") == "youtube"
-    has_chapters = bool(top.get("chapters"))
-    if is_single_video and not has_chapters and not chapters_file:
-        mode = "single_songs"
-    elif is_single_video:
-        mode = "chapters"
-    else:
-        mode = "playlist"
+    mode = detect_mode(top, has_chapters_file=bool(chapters_file))
 
     if mode == "single_songs" and not album:
         raise UserError("ALBUM_REQUIRED", "single-song URL(s) require an album name (--album)")
