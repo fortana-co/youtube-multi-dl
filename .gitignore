@@ -1,17 +1,17 @@
-# general things to ignore
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# uv virtual environment
+.venv/
+
+# build / packaging artifacts (`uv build`)
 build/
 dist/
-venv/
 *.egg-info/
-*.egg
-*.py[cod]
-__pycache__/
-*.so
-*~
-MANIFEST
-.python-version
 
-# due to using tox and pytest
-.tox
-.cache
-sandbox/*
+# tool caches
+.ruff_cache/
+
+# test fixtures
+tests/fixtures/*.mp4

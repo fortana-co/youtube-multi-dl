@@ -1,0 +1,11 @@
+youtube-multi-dl test video — album with an UNSTRUCTURED tracklist.
+
+This lists per-track DURATIONS (not cumulative timestamps) and does not start
+with 0:00, so YouTube will NOT auto-generate chapters. yt-dlp sees zero chapters.
+This is the case an agent handles by parsing the tracklist, accumulating the
+durations into start/end times, and passing the result as a --chapters-file.
+
+Tracklist:
+1. Alpha [0:12]
+2. Bravo [0:12]
+3. Charlie [0:12]

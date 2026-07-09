@@ -1,165 +1,139 @@
+"""
+Command-line entry point.
+
+Contract for programmatic/agent use:
+
+- Exactly one JSON object is written to **stdout**. All logging/progress goes to
+  **stderr**. So `youtube-multi-dl ... 2>/dev/null | jq` yields clean JSON.
+- On success stdout conforms to `schema.RESULT_SCHEMA`; on a fatal error it
+  conforms to `schema.ERROR_SCHEMA`.
+- Exit codes: `0` = all tracks downloaded/skipped, `2` = some tracks failed
+  (a result object is still emitted), `1` = fatal error (an error object is
+  emitted). The tool is always non-interactive; re-runs are idempotent (already
+  downloaded videos are skipped) unless `--force` is given.
+"""
+
 import argparse
-import subprocess
+import json
+import shutil
 import sys
-from distutils.version import LooseVersion
-from typing import Union
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 
-import youtube_dl  # type: ignore
+from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader
+from .schema import ErrorCode, make_error, validate_error, validate_result
 
-if sys.version_info.major < 3 or sys.version_info.minor < 8:
-    sys.exit(
-        "you need at least python3.8 to run youtube-multi-dl\n\n"
-        "make sure you installed it with `pip3 install youtube-multi-dl`"
-    )
-
-from .downloader import downloader  # noqa
-
-your_version = "2.0.0"
-
-audio_formats = ("aac", "flac", "mp3", "m4a", "opus", "vorbis", "wav", "best")
-
-parser = argparse.ArgumentParser(description="Download a playlist from YouTube using yt-dlp")
-
-parser.add_argument("-v", "--version", action="store_true", help="show version and exit")
-# user must pass url, artist (album can be taken from playlist title)
-parser.add_argument(
-    "url", type=str, nargs="+", help="URL of YouTube playlist or video with chapters, or list of single-song URLs"
-)
-parser.add_argument("-a", "--artist", required=True, help="Artist(s)")
-parser.add_argument("--album", default="", help="Album(s), defaults to YouTube playlist or video name")
-parser.add_argument("-p", "--playlist-items", default="", help='Playlist tracks to download; e.g. "1,3-5,7-9,11,12"')
-parser.add_argument(
-    "-t",
-    "--track-numbers",
-    default="",
-    help="Track numbers to assign to playlist items; must have same length as playlist items",
-)
-parser.add_argument(
-    "-r",
-    "--remove-chapters-source-file",
-    action="store_true",
-    help="For video with chapters, remove source file after download",
-)
-parser.add_argument("-s", "--strip-patterns", type=str, nargs="+", help="Remove patterns from title(s)")
-parser.add_argument("--no-strip-meta", action="store_true", help="Don't remove artist and album names from title(s)")
-parser.add_argument(
-    "-f",
-    "--audio-format",
-    type=str,
-    default="mp3",
-    help='Audio format; one of {}; default "mp3"; '
-    '"best" optimizes for audio quality, but may not be the format you want'.format(audio_formats),
-)
-parser.add_argument(
-    "-q",
-    "--audio-quality",
-    type=str,
-    default="",
-    help="Audio quality; insert a value between "
-    "0 (better) and 9 (worse) for VBR or a specific bitrate like 128K (default 160)",
-)
-parser.add_argument("--chapters-file", type=str, default="", help="JSON or CSV file with chapters info")
-parser.add_argument(
-    "-o", "--output-path", type=str, default="", help="Directory in which album/playlist directory is created"
-)
+if sys.version_info < (3, 12):
+    sys.exit("you need at least python3.12 to run youtube-multi-dl")
 
 
-def latest_version(package_info_url: str) -> Union[LooseVersion, None]:
-    import json
-    import urllib.request
-
+def get_version() -> str:
     try:
-        response = urllib.request.urlopen(package_info_url)
-        text = response.read()
-        info = json.loads(text.decode("utf-8"))
-
-        versions = info["releases"].keys() or ["0.0.0"]
-        return max(LooseVersion(v) for v in versions)
-    except Exception:
-        return None
+        return version("youtube-multi-dl")
+    except PackageNotFoundError:
+        return "0.0.0"
 
 
-def print_version(always_show_version: bool = True) -> None:
-    version = latest_version("https://pypi.python.org/pypi/youtube-multi-dl/json")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="youtube-multi-dl",
+        description="Download and label albums/playlists from YouTube. Emits JSON on stdout; logs on stderr.",
+    )
+    parser.add_argument("-v", "--version", action="store_true", help="print version and exit")
+    parser.add_argument(
+        "url", nargs="*", help="URL/ID of a YouTube playlist, a video with chapters, or one or more single-song URLs"
+    )
+    parser.add_argument("-a", "--artist", help="artist(s)")
+    parser.add_argument(
+        "--album", default="", help="album; defaults to the playlist/video title (required for single-song URLs)"
+    )
+    parser.add_argument("-p", "--playlist-items", default="", help='playlist items to download, e.g. "1,3-5,7-9"')
+    parser.add_argument("-t", "--track-numbers", default="", help="track numbers to assign; same length as the items")
+    parser.add_argument("-s", "--strip-patterns", nargs="+", help="extra regex patterns to remove from titles")
+    parser.add_argument(
+        "-f",
+        "--audio-format",
+        choices=AUDIO_FORMATS,
+        default=DEFAULT_AUDIO_FORMAT,
+        help=f"audio format (default {DEFAULT_AUDIO_FORMAT!r}); opus copies YouTube's stream when possible",
+    )
+    parser.add_argument(
+        "-q",
+        "--audio-quality",
+        default="",
+        help="audio quality; a bitrate like 160K, or 0-9 VBR for mp3. Omit for opus to avoid re-encoding.",
+    )
+    parser.add_argument("--chapters-file", default="", help="JSON or CSV file of chapters to split a single video by")
+    parser.add_argument("-o", "--output-path", default="", help="directory in which the album directory is created")
+    parser.add_argument("--force", action="store_true", help="re-download even if a track is already present")
+    return parser
 
-    if version is not None:
-        if version > LooseVersion(your_version):
-            print(
-                "\n####\nthe latest version of youtube-multi-dl is {}, but you have {}".format(
-                    version.vstring, your_version
-                )
-            )
-            print("run `pip3 install --upgrade youtube-multi-dl` to upgrade\n####")
-            print("\nsee release notes here: https://github.com/fortana-co/youtube-multi-dl/blob/master/RELEASES.md")
-        elif always_show_version:
-            print("latest version is {}, you're up to date!".format(version))
+
+def preflight() -> tuple[ErrorCode, str] | None:
+    missing = [b for b in ("ffmpeg", "ffprobe") if not shutil.which(b)]
+    if missing:
+        return (
+            "NO_FFMPEG",
+            f"missing required binaries: {', '.join(missing)}. Install ffmpeg (e.g. `brew install ffmpeg`).",
+        )
+    if not (shutil.which("deno") or shutil.which("node")):
+        return (
+            "NO_JS_RUNTIME",
+            "no JavaScript runtime found; YouTube extraction needs one. Install deno (e.g. `brew install deno`).",
+        )
+    return None
 
 
-def print_ydl_version(always_show_version: bool = True) -> None:
-    version = latest_version("https://pypi.python.org/pypi/yt-dlp/json")
-    if version is not None:
-        if version > LooseVersion(youtube_dl.version.__version__):
-            print(
-                "\n####\nthe latest version of yt-dlp is {}, but you have {}".format(
-                    version.vstring, youtube_dl.version.__version__
-                )
-            )
-            print("you should upgrade yt-dlp")
-        elif always_show_version:
-            print("latest yt-dlp version is {}, you're up to date!".format(version))
+def emit(obj: dict[str, Any]) -> None:
+    print(json.dumps(obj, indent=2))
+
+
+def fail(code: ErrorCode, message: str) -> None:
+    error = make_error(code, message)
+    validate_error(error)
+    emit(error)
+    sys.exit(1)
 
 
 def main() -> None:
-    """The `console_scripts` entry point for youtube-multi-dl. There's no need to pass
-    arguments to this function, because `argparse` reads `sys.argv[1:]`.
-
-    http://python-packaging.readthedocs.io/en/latest/command-line-scripts.html#the-console-scripts-entry-point
-    """
-    if len(sys.argv) > 1 and (sys.argv[1] == "-v" or sys.argv[1] == "--version"):
-        print("youtube-multi-dl version {}".format(your_version))
-        print_version()
-        print("\nyt-dlp version {}".format(youtube_dl.version.__version__))
-        print_ydl_version()
-
-        sys.exit(0)
-    if len(sys.argv) == 1:
-        sys.argv.append("-h")
-
+    parser = build_parser()
     args = parser.parse_args()
-    kwargs = {}
-    for name in [
-        "artist",
-        "album",
-        "playlist_items",
-        "remove_chapters_source_file",
-        "strip_patterns",
-        "track_numbers",
-        "audio_format",
-        "audio_quality",
-        "chapters_file",
-        "output_path",
-    ]:
-        kwargs[name] = args.__getattribute__(name)
-    kwargs["urls"] = args.__getattribute__("url")
-    kwargs["strip_meta"] = not args.__getattribute__("no_strip_meta")
 
-    if kwargs["audio_format"] not in audio_formats:
-        print("invalid audio format: must be one of {}".format(audio_formats))
-        sys.exit()
-    if kwargs["audio_format"] != "best" and not kwargs["audio_quality"]:
-        kwargs["audio_quality"] = "160"
+    if args.version:
+        emit({"version": get_version()})
+        sys.exit(0)
+    if not args.url:
+        parser.error("at least one url is required")
+    if not args.artist:
+        parser.error("the following argument is required: -a/--artist")
 
-    if subprocess.call(["which", "ffmpeg"]) != 0:
-        print("ffmpeg isn't installed! youtube-multi-dl needs ffmpeg to convert video to audio...")
-        print("\ninstructions: https://trac.ffmpeg.org/wiki/CompilationGuide")
-        print("osx: `brew install ffmpeg`")
-        print("ubuntu: `sudo apt-get install ffmpeg`")
-        sys.exit()
+    precondition = preflight()
+    if precondition is not None:
+        fail(*precondition)
 
     try:
-        downloader(**kwargs)
+        result = downloader(
+            urls=args.url,
+            artist=args.artist,
+            album=args.album,
+            playlist_items=args.playlist_items,
+            strip_patterns=args.strip_patterns,
+            audio_format=args.audio_format,
+            audio_quality=args.audio_quality,
+            chapters_file=args.chapters_file,
+            output_path=args.output_path,
+            track_numbers=args.track_numbers,
+            force=args.force,
+        )
+    except UserError as e:
+        fail(e.code, str(e))
     except KeyboardInterrupt:
-        sys.exit()
+        fail("INTERRUPTED", "interrupted")
 
-    print_version(False)
-    print_ydl_version(False)
+    validate_result(result)
+    emit(result)
+    sys.exit(0 if result["ok"] else 2)
+
+
+if __name__ == "__main__":
+    main()
