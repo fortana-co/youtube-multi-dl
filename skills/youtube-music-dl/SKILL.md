@@ -45,7 +45,7 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 - `-p/--playlist-items "1,3-5"`: tracks in playlist to download
 - `-t/--track-numbers "1,3-5"`: same length as playlist
 - `-f/--audio-format {opus,mp3}`: default `opus`
-- `-o/--output-path DIR`: an `<artist>/<album>/` directory is created inside DIR. If omitted, defaults to `$YMD_OUTPUT_DIR` (a music dir the user may have configured), else the current directory. Prefer omitting `-o` when the user hasn't named a location, so their configured default is used; only ask where to save if neither is available.
+- `-o/--output-dir DIR`: an `<artist>/<album>/` directory is created inside DIR. If omitted, defaults to `$YMD_OUTPUT_DIR` (a music dir the user may have configured), else the current directory. Prefer omitting `-o` when the user hasn't named a location, so their configured default is used; only ask where to save if neither is available.
 - `--chapters-file FILE.json`: split a single video at custom timestamps (JSON files are validated against the `chapters_file` schema from `--print-schema`; malformed ones fail with `INVALID_ARGS`)
 - `--probe`: report what a real run *would* do (mode, chapters, description) **without downloading**
 - `--print-schema` / `--print-skill`: print the JSON Schemas (`result`, `error`, `probe`, `retag`, `chapters_file`) / this document

@@ -70,7 +70,7 @@ It prints one JSON object to stdout (logs go to stderr), so `youtube-music-dl �
 - `-f`, `--audio-format`: **{opus,mp3}**; default `opus`; Opus is copied from YouTube's stream without re-encoding when possible; mp3 is for maximum device compatibility
 - `-q`, `--audio-quality`: a bitrate like `160K`, or `0`–`9` VBR for mp3; omit for opus to avoid re-encoding (recommended)
 - `--chapters-file`: JSON or CSV file of chapters used to split a single video at custom timestamps; [see these examples](./examples/chapters_file)
-- `-o`, `--output-path`: directory in which the album directory is created; precedence: this flag (even `-o .`) → the `YMD_OUTPUT_DIR` env var → the current directory
+- `-o`, `--output-dir`: directory in which the album directory is created; precedence: this flag (even `-o .`) → the `YMD_OUTPUT_DIR` env var → the current directory
 - `--force`: re-download tracks even if they're already present
 - `--probe`: print what a real run *would* do as JSON, **without downloading**; useful e.g. for deciding whether an album video needs a `--chapters-file`
 - `--print-schema`: print the JSON Schemas and exit

@@ -251,7 +251,7 @@ def downloader(
     audio_format: str = DEFAULT_AUDIO_FORMAT,
     audio_quality: str = "",
     chapters_file: str = "",
-    output_path: str = "",
+    output_dir: str = "",
     track_numbers: str = "",
     force: bool = False,
 ) -> dict[str, Any]:
@@ -264,7 +264,7 @@ def downloader(
         if not os.path.exists(chapters_file):
             raise UserError("NO_CHAPTERS_FILE", f"no chapters file at {chapters_file}")
 
-    base_dir = Path(os.path.expanduser(output_path)).resolve() if output_path else Path.cwd()
+    base_dir = Path(os.path.expanduser(output_dir)).resolve() if output_dir else Path.cwd()
 
     top = probe(urls[0], probe_opts(playlist_items))
     if not top:

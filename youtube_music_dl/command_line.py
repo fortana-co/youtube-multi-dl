@@ -52,7 +52,7 @@ def get_version() -> str:
 OUTPUT_DIR_ENV = "YMD_OUTPUT_DIR"
 
 
-def resolve_output_path(cli_value: str) -> str:
+def resolve_output_dir(cli_value: str) -> str:
     """
     Resolve where the album directory goes.
 
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--chapters-file", default="", help="JSON or CSV file of chapters to split a single video by")
     parser.add_argument(
         "-o",
-        "--output-path",
+        "--output-dir",
         default="",
         help=f"directory in which the album directory is created; defaults to ${OUTPUT_DIR_ENV}, else the current dir",
     )
@@ -232,7 +232,7 @@ def main() -> None:
             audio_format=args.audio_format,
             audio_quality=args.audio_quality,
             chapters_file=args.chapters_file,
-            output_path=resolve_output_path(args.output_path),
+            output_dir=resolve_output_dir(args.output_dir),
             track_numbers=args.track_numbers,
             force=args.force,
         )

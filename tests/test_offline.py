@@ -339,17 +339,17 @@ def test_cli_print_skill():
     assert "youtube-music-dl" in proc.stdout
 
 
-def test_resolve_output_path(monkeypatch):
-    from youtube_music_dl.command_line import resolve_output_path
+def test_resolve_output_dir(monkeypatch):
+    from youtube_music_dl.command_line import resolve_output_dir
 
     monkeypatch.delenv("YMD_OUTPUT_DIR", raising=False)
-    assert resolve_output_path("") == ""  # nothing set -> current dir
-    assert resolve_output_path(".") == "."  # explicit -o . -> current dir
+    assert resolve_output_dir("") == ""  # nothing set -> current dir
+    assert resolve_output_dir(".") == "."  # explicit -o . -> current dir
 
     monkeypatch.setenv("YMD_OUTPUT_DIR", "/music")
-    assert resolve_output_path("") == "/music"  # fall back to the env var
-    assert resolve_output_path(".") == "."  # explicit -o . still wins over the env var
-    assert resolve_output_path("/x") == "/x"  # any explicit path wins
+    assert resolve_output_dir("") == "/music"  # fall back to the env var
+    assert resolve_output_dir(".") == "."  # explicit -o . still wins over the env var
+    assert resolve_output_dir("/x") == "/x"  # any explicit path wins
 
 
 # --- chapters file JSON validation ----------------------------------------
