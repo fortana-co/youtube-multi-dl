@@ -50,6 +50,7 @@ def get_version() -> str:
 
 
 OUTPUT_DIR_ENV = "YMD_OUTPUT_DIR"
+AUDIO_QUALITY_ENV = "YMD_AUDIO_QUALITY"
 
 
 def resolve_output_dir(cli_value: str) -> str:
@@ -60,6 +61,16 @@ def resolve_output_dir(cli_value: str) -> str:
     directory).
     """
     return cli_value or os.environ.get(OUTPUT_DIR_ENV, "")
+
+
+def resolve_audio_quality(cli_value: str) -> str:
+    """
+    Resolve the audio quality.
+
+    Precedence: an explicit `-q` wins; otherwise fall back to ``$YMD_AUDIO_QUALITY``; otherwise `""` (unset). The
+    value is validated in ``downloader``.
+    """
+    return cli_value or os.environ.get(AUDIO_QUALITY_ENV, "")
 
 
 def read_skill() -> str:
@@ -230,7 +241,7 @@ def main() -> None:
             strip_patterns=args.strip_patterns,
             strip_meta=not args.no_strip_meta,
             audio_format=args.audio_format,
-            audio_quality=args.audio_quality,
+            audio_quality=resolve_audio_quality(args.audio_quality),
             chapters_file=args.chapters_file,
             output_dir=resolve_output_dir(args.output_dir),
             track_numbers=args.track_numbers,

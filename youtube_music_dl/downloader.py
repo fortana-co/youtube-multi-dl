@@ -38,7 +38,8 @@ Info = dict[str, Any]
 
 AUDIO_FORMATS = ("opus", "mp3")
 DEFAULT_AUDIO_FORMAT = "opus"
-DEFAULT_MP3_QUALITY = "160K"
+# A bare number (kbps); See normalize_audio_quality
+DEFAULT_MP3_QUALITY = "160"
 EXT_BY_FORMAT = {"opus": ".opus", "mp3": ".mp3"}
 
 
@@ -50,6 +51,32 @@ class UserError(Exception):
     def __init__(self, code: ErrorCode, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def normalize_audio_quality(audio_quality: str) -> str:
+    """
+    Validate and normalize an `--audio-quality` value, failing loudly on junk.
+
+    yt-dlp's `FFmpegExtractAudio` parses quality with `float_or_none`, so a bare "160K" gets silently dropped. yt-dlp's
+    own CLI avoids this by stripping the K and validating a positive number. We do the same here, and raise
+    `INVALID_ARGS` rather than silently ignore a bogus value (so callers find out before anything is downloaded).
+
+    A number <= 10 is a VBR quality (effective for mp3; opus ignores it); a number > 10 is a kbps bitrate
+    (e.g. "160K"/"160" -> 160 kbps). "" means "unset".
+    """
+    if not audio_quality:
+        return ""
+    normalized = audio_quality.strip().strip("kK")
+    try:
+        value = float(normalized)
+    except ValueError:
+        raise UserError(
+            "INVALID_ARGS",
+            f"invalid audio quality {audio_quality!r}; expected a bitrate like '160K', or a VBR value 0-10 for mp3",
+        ) from None
+    if value < 0:
+        raise UserError("INVALID_ARGS", f"invalid audio quality {audio_quality!r}; must be non-negative")
+    return normalized
 
 
 class Track(NamedTuple):
@@ -258,6 +285,7 @@ def downloader(
     if audio_format not in AUDIO_FORMATS:
         raise UserError("INVALID_ARGS", f"invalid audio format {audio_format!r}; must be one of {AUDIO_FORMATS}")
     ext = EXT_BY_FORMAT[audio_format]
+    audio_quality = normalize_audio_quality(audio_quality)
 
     if chapters_file:
         chapters_file = os.path.abspath(os.path.expanduser(chapters_file))

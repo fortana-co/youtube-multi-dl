@@ -97,6 +97,8 @@ youtube-music-dl retag "<album directory>" -a "Charly García"
 
 - `YMD_OUTPUT_DIR`: default output directory
   - E.g. set `export YMD_OUTPUT_DIR="$HOME/Music"`
+- `YMD_AUDIO_QUALITY`: default audio quality, used when `-q`/`--audio-quality` isn't passed (an explicit `-q` wins)
+  - E.g. set `export YMD_AUDIO_QUALITY="160K"`
 
 ## Use with AI agents
 

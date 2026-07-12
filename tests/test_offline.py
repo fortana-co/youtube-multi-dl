@@ -352,6 +352,36 @@ def test_resolve_output_dir(monkeypatch):
     assert resolve_output_dir("/x") == "/x"  # any explicit path wins
 
 
+def test_resolve_audio_quality(monkeypatch):
+    from youtube_music_dl.command_line import resolve_audio_quality
+
+    monkeypatch.delenv("YMD_AUDIO_QUALITY", raising=False)
+    assert resolve_audio_quality("") == ""  # nothing set -> unset
+    assert resolve_audio_quality("320K") == "320K"  # explicit -q
+
+    monkeypatch.setenv("YMD_AUDIO_QUALITY", "160K")
+    assert resolve_audio_quality("") == "160K"  # fall back to the env var
+    assert resolve_audio_quality("320K") == "320K"  # explicit -q wins over the env var
+
+
+def test_normalize_audio_quality():
+    from youtube_music_dl.downloader import UserError, normalize_audio_quality
+
+    # valid: K suffix stripped so yt-dlp actually honors the bitrate; VBR passes through
+    assert normalize_audio_quality("") == ""
+    assert normalize_audio_quality("160K") == "160"
+    assert normalize_audio_quality("160k") == "160"
+    assert normalize_audio_quality("320") == "320"
+    assert normalize_audio_quality("5") == "5"  # VBR (mp3)
+    assert normalize_audio_quality("0") == "0"
+
+    # invalid: fail loudly before any download
+    for bad in ("abc", "high", "-5", "k", "128kbps"):
+        with pytest.raises(UserError) as exc:
+            normalize_audio_quality(bad)
+        assert exc.value.code == "INVALID_ARGS"
+
+
 # --- chapters file JSON validation ----------------------------------------
 
 
