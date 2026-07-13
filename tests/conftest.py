@@ -30,10 +30,14 @@ def load_youtube_fixtures() -> dict[str, str]:
 
 @pytest.fixture
 def make_audio(tmp_path: Path):
-    """Generate a single-tone audio file (opus or mp3) of a given duration."""
+    """Generate a single-tone audio file (opus, m4a, or mp3) of a given duration."""
 
     def _make(name: str, *, freq: int = 440, seconds: float = 2.0, fmt: str = "opus") -> Path:
-        ext, codec = (".opus", "libopus") if fmt == "opus" else (".mp3", "libmp3lame")
+        ext, codec = {
+            "opus": (".opus", "libopus"),
+            "m4a": (".m4a", "aac"),
+            "mp3": (".mp3", "libmp3lame"),
+        }[fmt]
         out = tmp_path / f"{name}{ext}"
         subprocess.run(
             [

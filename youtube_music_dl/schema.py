@@ -52,7 +52,7 @@ RESULT_SCHEMA: dict[str, Any] = {
         "album": {"type": "string"},
         "artist": {"type": "string"},
         "directory": {"type": "string", "description": "absolute path to the album directory"},
-        "format": {"enum": ["opus", "mp3"]},
+        "format": {"enum": ["opus", "m4a", "mp3"]},
         "chapters_file": {
             "type": ["string", "null"],
             "description": "absolute path to the normalized chapters file used for a split, else null",

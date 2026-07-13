@@ -155,7 +155,7 @@ def test_example_chapters_files_parse_and_normalize(name):
 
 
 @requires_ffmpeg
-@pytest.mark.parametrize("fmt", ["opus", "mp3"])
+@pytest.mark.parametrize("fmt", ["opus", "m4a", "mp3"])
 def test_tag_roundtrip(make_audio, fmt):
     path = make_audio("track", fmt=fmt)
     tag_audio(
@@ -380,6 +380,58 @@ def test_normalize_audio_quality():
         with pytest.raises(UserError) as exc:
             normalize_audio_quality(bad)
         assert exc.value.code == "INVALID_ARGS"
+
+
+def test_resolve_audio_format(monkeypatch):
+    from youtube_music_dl.command_line import resolve_audio_format
+    from youtube_music_dl.downloader import DEFAULT_AUDIO_FORMAT
+
+    monkeypatch.delenv("YMD_AUDIO_FORMAT", raising=False)
+    assert resolve_audio_format("") == DEFAULT_AUDIO_FORMAT  # nothing set -> default
+    assert resolve_audio_format("m4a") == "m4a"  # explicit -f
+
+    monkeypatch.setenv("YMD_AUDIO_FORMAT", "mp3")
+    assert resolve_audio_format("") == "mp3"  # fall back to the env var
+    assert resolve_audio_format("m4a") == "m4a"  # explicit -f wins over the env var
+
+
+def test_download_opts_per_format(tmp_path: Path):
+    from youtube_music_dl.downloader import DEFAULT_MP3_QUALITY, download_opts
+
+    # opus/m4a: select the matching native stream and DON'T force a quality (so it's a copy)
+    for fmt, selection in [("opus", "bestaudio[acodec=opus]"), ("m4a", "bestaudio[ext=m4a]")]:
+        opts = download_opts(tmp_path, fmt, "")
+        pp = opts["postprocessors"][0]
+        assert pp["preferredcodec"] == fmt
+        assert "preferredquality" not in pp  # copy, no re-encode
+        assert opts["format"].startswith(selection)
+
+    # mp3: always transcodes, so it gets the default bitrate
+    pp = download_opts(tmp_path, "mp3", "")["postprocessors"][0]
+    assert pp["preferredcodec"] == "mp3"
+    assert pp["preferredquality"] == DEFAULT_MP3_QUALITY
+
+    # an explicit quality applies to any format (forces a re-encode)
+    assert download_opts(tmp_path, "opus", "128")["postprocessors"][0]["preferredquality"] == "128"
+
+
+def test_warn_if_transcoded(capsys):
+    from youtube_music_dl.downloader import warn_if_transcoded
+
+    warn_if_transcoded({"acodec": "opus"}, "opus", "id_copy")  # native opus -> copy, silent
+    warn_if_transcoded({"acodec": "mp4a.40.2"}, "opus", "id_reencode")  # aac source -> notice
+    warn_if_transcoded({"acodec": "opus"}, "mp3", "id_mp3")  # mp3 always transcodes -> silent by design
+
+    err = capsys.readouterr().err
+    assert "id_reencode" in err and "re-encoded" in err
+    assert "id_copy" not in err and "id_mp3" not in err
+
+
+def test_result_schema_format_enum_matches_audio_formats():
+    # guard against the schema's `format` enum drifting from the supported formats
+    from youtube_music_dl.downloader import AUDIO_FORMATS
+
+    assert set(schema.RESULT_SCHEMA["properties"]["format"]["enum"]) == set(AUDIO_FORMATS)
 
 
 # --- chapters file JSON validation ----------------------------------------

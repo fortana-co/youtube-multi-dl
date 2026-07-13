@@ -1,27 +1,49 @@
 """
 Per-format audio tagging and provenance/idempotency helpers.
 
-We support exactly two output formats:
+We support exactly three output formats:
 
-- **mp3**  -> ID3 tags (via `EasyID3`), for maximum device compatibility.
 - **opus** -> Vorbis comments (via `OggOpus`), the modern default.
+- **m4a**  -> MP4/iTunes atoms (via `EasyMP4`), native AAC for the Apple ecosystem.
+- **mp3**  -> ID3 tags (via `EasyID3`), for maximum device compatibility.
 
-Both carry the same logical fields, including a custom `youtube_video_id` provenance tag. That tag travels with the
-file (surviving moves/renames), and is what we read back to decide whether a video has already been downloaded.
+All three expose mutagen's uniform "easy" mapping interface, so we tag them identically. Each carries the same
+logical fields, including a custom `youtube_video_id` provenance tag. That tag travels with the file (surviving
+moves/renames), and is what we read back to decide whether a video has already been downloaded.
 """
 
 from pathlib import Path
+from typing import Any
 
 from mutagen.easyid3 import EasyID3
+from mutagen.easymp4 import EasyMP4, EasyMP4Tags
 from mutagen.id3 import ID3NoHeaderError
 from mutagen.oggopus import OggOpus
 
-# Custom provenance field. On mp3 this needs a one-time TXXX registration; on
-# opus (Vorbis comments) arbitrary keys just work.
+# Custom provenance field
+# - mp3 needs a one-time TXXX registration
+# - m4a needs a freeform atom registration (stored as `----:com.apple.iTunes:youtube_video_id`)
+# - opus (Vorbis comments) takes arbitrary keys as-is.
 PROVENANCE_KEY = "youtube_video_id"
 EasyID3.RegisterTXXXKey(PROVENANCE_KEY, PROVENANCE_KEY)
+EasyMP4Tags.RegisterFreeformKey(PROVENANCE_KEY, PROVENANCE_KEY)
 
-SUPPORTED_EXTENSIONS = (".mp3", ".opus")
+SUPPORTED_EXTENSIONS = (".opus", ".m4a", ".mp3")
+
+
+def open_tags(path: Path) -> Any:
+    """Open `path` for tagging, dispatching on extension to a mutagen "easy" mapping."""
+    ext = path.suffix.lower()
+    if ext == ".mp3":
+        try:
+            return EasyID3(str(path))
+        except ID3NoHeaderError:
+            return EasyID3()
+    if ext == ".opus":
+        return OggOpus(str(path))
+    if ext == ".m4a":
+        return EasyMP4(str(path))
+    raise ValueError(f"unsupported audio extension for tagging: {ext}")
 
 
 def tag_audio(
@@ -34,17 +56,7 @@ def tag_audio(
     youtube_video_id: str | None,
 ) -> None:
     """Write the canonical tags to `path`, dispatching on its extension."""
-    ext = path.suffix.lower()
-    if ext == ".mp3":
-        try:
-            audio = EasyID3(str(path))
-        except ID3NoHeaderError:
-            audio = EasyID3()
-    elif ext == ".opus":
-        audio = OggOpus(str(path))
-    else:
-        raise ValueError(f"unsupported audio extension for tagging: {ext}")
-
+    audio = open_tags(path)
     audio["title"] = title
     audio["artist"] = artist
     audio["album"] = album
@@ -56,17 +68,7 @@ def tag_audio(
 
 def update_tags(path: Path, *, artist: str | None = None, album: str | None = None) -> None:
     """Change only the artist and/or album, leaving title, track number, and provenance intact."""
-    ext = path.suffix.lower()
-    if ext == ".mp3":
-        try:
-            audio = EasyID3(str(path))
-        except ID3NoHeaderError:
-            audio = EasyID3()
-    elif ext == ".opus":
-        audio = OggOpus(str(path))
-    else:
-        raise ValueError(f"unsupported audio extension for tagging: {ext}")
-
+    audio = open_tags(path)
     if artist is not None:
         audio["artist"] = artist
     if album is not None:
@@ -76,14 +78,8 @@ def update_tags(path: Path, *, artist: str | None = None, album: str | None = No
 
 def read_provenance(path: Path) -> str | None:
     """Return the `youtube_video_id` tag from an audio file, or None."""
-    ext = path.suffix.lower()
     try:
-        if ext == ".mp3":
-            audio = EasyID3(str(path))
-        elif ext == ".opus":
-            audio = OggOpus(str(path))
-        else:
-            return None
+        audio = open_tags(path)
     except Exception:
         return None
     value = audio.get(PROVENANCE_KEY)

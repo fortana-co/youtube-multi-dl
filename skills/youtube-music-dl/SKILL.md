@@ -1,6 +1,6 @@
 ---
 name: youtube-music-dl
-description: Download and label music albums or playlists from YouTube as tagged audio files (opus by default, or mp3). Use when a user wants to download an album, a playlist, or an "album" video split into per-song tracks — given an album+artist name, a YouTube URL/ID, or a CSV/spreadsheet of albums to fetch. Produces cleanly-named, ID3/Vorbis-tagged files and emits machine-readable JSON.
+description: Download and label music albums or playlists from YouTube as tagged audio files (opus by default; m4a and mp3 also supported). Use when a user wants to download an album, a playlist, or an "album" video split into per-song tracks — given an album+artist name, a YouTube URL/ID, or a CSV/spreadsheet of albums to fetch. Produces cleanly-named, tagged files and emits machine-readable JSON.
 ---
 
 # youtube-music-dl
@@ -44,7 +44,7 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 - `--album`: required only for single-song URLs
 - `-p/--playlist-items "1,3-5"`: tracks in playlist to download
 - `-t/--track-numbers "1,3-5"`: same length as playlist
-- `-f/--audio-format {opus,mp3}`: default `opus`
+- `-f/--audio-format {opus,m4a,mp3}`: default `opus` (or `$YMD_AUDIO_FORMAT`). The file extension always matches the format. `opus` and `m4a` copy YouTube's native stream without re-encoding when possible; `mp3` always transcodes.
 - `-o/--output-dir DIR`: an `<artist>/<album>/` directory is created inside DIR. If omitted, defaults to `$YMD_OUTPUT_DIR` (a music dir the user may have configured), else the current directory. Prefer omitting `-o` when the user hasn't named a location, so their configured default is used; only ask where to save if neither is available.
 - `--chapters-file FILE.json`: split a single video at custom timestamps (JSON files are validated against the `chapters_file` schema from `--print-schema`; malformed ones fail with `INVALID_ARGS`)
 - `--probe`: report what a real run *would* do (mode, chapters, description) **without downloading**
@@ -60,7 +60,7 @@ If the user got the artist or album wrong, don't re-download — use the `retag`
 youtube-music-dl retag "<existing album directory>" -a "New Artist" --album "New Album"
 ```
 
-Point it at the existing `<artist>/<album>` directory (the one holding the `.opus`/`.mp3` files). Pass `-a` and/or `--album` — whichever changed. It errors with `INVALID_ARGS` if the directory has no audio files, or if the destination already exists (which usually means the corrected album is already there). Output conforms to the `retag` schema.
+Point it at the existing `<artist>/<album>` directory (the one holding the `.opus`/`.m4a`/`.mp3` files). Pass `-a` and/or `--album` — whichever changed. It errors with `INVALID_ARGS` if the directory has no audio files, or if the destination already exists (which usually means the corrected album is already there). Output conforms to the `retag` schema.
 
 ## Decide the mode with `--probe` (do this for a single video)
 

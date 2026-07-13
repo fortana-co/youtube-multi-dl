@@ -85,6 +85,32 @@ def test_structured_chapters_autosplit(tmp_path: Path):
     assert [t["title"] for t in result["tracks"]] == ["Alpha", "Bravo", "Charlie"]
 
 
+def test_m4a_end_to_end(tmp_path: Path):
+    """Guard the full m4a pipeline that offline tests can't: real AAC-stream selection,
+    ffmpeg copy-splitting into `.m4a`, EasyMP4 tagging a real file, schema, and idempotency."""
+    from mutagen import File as MutagenFile
+
+    from youtube_music_dl.tagging import read_provenance
+
+    vid = _need("structured_chapters_video_id")
+    args = (vid, "-a", "Test Artist", "--album", "ymd m4a", "-f", "m4a", "-o", str(tmp_path))
+    code, result = run_cli(*args, cwd=tmp_path)
+    schema.validate_result(result)
+    assert code == 0
+    assert result["format"] == "m4a"
+    assert len(result["tracks"]) == 3 and all(t["status"] == "downloaded" for t in result["tracks"])
+    for t in result["tracks"]:
+        f = Path(t["file"])
+        assert f.suffix == ".m4a" and f.exists()
+        assert read_provenance(f) == t["youtube_video_id"]  # provenance readable from the real .m4a
+        tags = MutagenFile(str(f), easy=True)
+        assert tags is not None and tags["album"] == ["ymd m4a"]
+
+    # idempotent re-run: the existing .m4a files are recognized (by provenance) and skipped
+    code2, result2 = run_cli(*args, cwd=tmp_path)
+    assert code2 == 0 and all(t["status"] == "skipped" for t in result2["tracks"])
+
+
 def test_unstructured_via_chapters_file(tmp_path: Path):
     vid = _need("unstructured_tracklist_video_id")
     # agent-style: hand the tool a chapters file derived from the description

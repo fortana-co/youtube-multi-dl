@@ -36,11 +36,24 @@ youtube_dl: Any = yt_dlp
 
 Info = dict[str, Any]
 
-AUDIO_FORMATS = ("opus", "mp3")
+AUDIO_FORMATS = ("opus", "m4a", "mp3")
 DEFAULT_AUDIO_FORMAT = "opus"
 # A bare number (kbps); See normalize_audio_quality
 DEFAULT_MP3_QUALITY = "160"
-EXT_BY_FORMAT = {"opus": ".opus", "mp3": ".mp3"}
+EXT_BY_FORMAT = {"opus": ".opus", "m4a": ".m4a", "mp3": ".mp3"}
+
+# Per-format yt-dlp stream selection. We prefer the source stream whose codec matches the target so the postprocessor
+# can *copy* it (no re-encode); the `/bestaudio/best` tail is the fallback when that stream is missing (then the
+# postprocessor transcodes — see download_audio). The output extension is always EXT_BY_FORMAT[audio_format] regardless
+# of what got downloaded, because FFmpegExtractAudio normalizes everything to the requested codec.
+FORMAT_SELECTION = {
+    "opus": "bestaudio[acodec=opus]/bestaudio/best",  # native Opus (webm) -> copy .opus
+    "m4a": "bestaudio[ext=m4a]/bestaudio/best",  # native AAC (m4a) -> copy .m4a
+    "mp3": "bestaudio/best",  # always a transcode; just take the best source
+}
+# The source acodec prefix(es) that let each target be a copy rather than a re-encode.
+# mp3 is intentionally empty: it's always a transcode by design, so it never warrants a notice.
+COPY_SOURCE_BY_FORMAT = {"opus": ("opus",), "m4a": ("mp4a", "aac"), "mp3": ()}
 
 
 class UserError(Exception):
@@ -165,15 +178,17 @@ def probe_opts(playlist_items: str = "") -> dict[str, Any]:
 
 
 def download_opts(target_dir: Path, audio_format: str, audio_quality: str) -> dict[str, Any]:
+    """
+    Note a non-empty quality forces a re-encode. mp3 is always a transcode anyway, so it gets a default bitrate; opus
+    and m4a are left unset by default so their native stream is stream-copied.
+    """
     postprocessor: dict[str, str] = {"key": "FFmpegExtractAudio", "preferredcodec": audio_format}
-    quality = audio_quality or ("" if audio_format == "opus" else DEFAULT_MP3_QUALITY)
+    quality = audio_quality or (DEFAULT_MP3_QUALITY if audio_format == "mp3" else "")
     if quality:
-        # Setting a quality forces a re-encode. For opus we intentionally leave it
-        # unset by default so yt-dlp copies YouTube's existing Opus stream.
         postprocessor["preferredquality"] = quality
     opts = base_opts()
-    # audio only: no need to fetch (and re-mux) video, and it lets opus be copied
-    opts["format"] = "bestaudio/best"
+    # audio only: no need to fetch (and re-mux) video, and it lets the native stream be copied
+    opts["format"] = FORMAT_SELECTION[audio_format]
     opts["outtmpl"] = str(target_dir / "%(id)s.%(ext)s")
     opts["postprocessors"] = [postprocessor, {"key": "FFmpegMetadata"}]
     return opts
@@ -198,7 +213,20 @@ def download_audio(
     path = target_dir / f"{video_id}{ext}"
     if not path.exists():
         return None
+    warn_if_transcoded(info, audio_format, video_id)
     return info, path
+
+
+def warn_if_transcoded(info: Info, audio_format: str, video_id: str) -> None:
+    """
+    Log a stderr note when the requested format's native stream was missing and we had to re-encode. `info["acodec"]` is
+    the *source* stream's codec (extract_info reports the selected stream, not the postprocessed output). Should be
+    exceedingly rare on YouTube.
+    """
+    copyable = COPY_SOURCE_BY_FORMAT[audio_format]
+    source_acodec = (info.get("acodec") or "").lower()
+    if copyable and not source_acodec.startswith(copyable):
+        log(f"note: no native {audio_format} stream for {video_id}; re-encoded from {source_acodec or 'source'}")
 
 
 def finalize(src: Path, directory: Path, index: int, title: str, ext: str) -> Path:
@@ -467,18 +495,19 @@ def do_chapters(url: str, top: Info, chapters_file: str, ctx: Ctx) -> tuple[list
 
 
 def retag(directory: str, artist: str | None = None, album: str | None = None) -> dict[str, Any]:
-    """Rewrite the artist/album tags on an album's files and move its folder to match.
+    """
+    Rewrite the artist/album tags on an album's files and move its folder to match.
 
-    `directory` must be an existing album directory (the `<album>` leaf of the tool's
-    `<artist>/<album>` layout) containing .opus/.mp3 files. Does not re-download or
-    re-tag titles/track numbers. Errors if the destination already exists.
+    `directory` must be an existing album directory (the `<album>` leaf of the tool's `<artist>/<album>` layout)
+    containing .opus/.m4a/.mp3 files. Does not re-download or re-tag titles/track numbers. Errors if the destination
+    already exists.
     """
     src = Path(os.path.expanduser(directory)).resolve()
     if not src.is_dir():
         raise UserError("INVALID_ARGS", f"not a directory: {src}")
     files = sorted(p for p in src.iterdir() if p.suffix.lower() in SUPPORTED_EXTENSIONS)
     if not files:
-        raise UserError("INVALID_ARGS", f"no .opus or .mp3 files in {src}")
+        raise UserError("INVALID_ARGS", f"no {'/'.join(SUPPORTED_EXTENSIONS)} files in {src}")
     if artist is None and album is None:
         raise UserError("INVALID_ARGS", "provide --artist and/or --album to change")
 

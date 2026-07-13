@@ -51,13 +51,14 @@ def get_version() -> str:
 
 OUTPUT_DIR_ENV = "YMD_OUTPUT_DIR"
 AUDIO_QUALITY_ENV = "YMD_AUDIO_QUALITY"
+AUDIO_FORMAT_ENV = "YMD_AUDIO_FORMAT"
 
 
 def resolve_output_dir(cli_value: str) -> str:
     """
     Resolve where the album directory goes.
 
-    Precedence: an explicit `-o` wins; otherwise fall back to ``$YMD_OUTPUT_DIR``; otherwise `""` (the current
+    Precedence: an explicit `-o` wins; otherwise fall back to `$YMD_OUTPUT_DIR`; otherwise `""` (the current
     directory).
     """
     return cli_value or os.environ.get(OUTPUT_DIR_ENV, "")
@@ -67,10 +68,20 @@ def resolve_audio_quality(cli_value: str) -> str:
     """
     Resolve the audio quality.
 
-    Precedence: an explicit `-q` wins; otherwise fall back to ``$YMD_AUDIO_QUALITY``; otherwise `""` (unset). The
-    value is validated in ``downloader``.
+    Precedence: an explicit `-q` wins; otherwise fall back to `$YMD_AUDIO_QUALITY`; otherwise `""` (unset). The
+    value is validated in `downloader`.
     """
     return cli_value or os.environ.get(AUDIO_QUALITY_ENV, "")
+
+
+def resolve_audio_format(cli_value: str) -> str:
+    """
+    Resolve the audio format.
+
+    Precedence: an explicit `-f` wins; otherwise fall back to `$YMD_AUDIO_FORMAT`; otherwise the default. The value is
+    validated in `downloader` (so a bogus `$YMD_AUDIO_FORMAT` fails loudly).
+    """
+    return cli_value or os.environ.get(AUDIO_FORMAT_ENV, "") or DEFAULT_AUDIO_FORMAT
 
 
 def read_skill() -> str:
@@ -110,8 +121,9 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         "--audio-format",
         choices=AUDIO_FORMATS,
-        default=DEFAULT_AUDIO_FORMAT,
-        help=f"audio format (default {DEFAULT_AUDIO_FORMAT!r}); opus copies YouTube's stream when possible",
+        default="",  # empty so $YMD_AUDIO_FORMAT can supply the default; resolved in resolve_audio_format
+        help=f"audio format (default {DEFAULT_AUDIO_FORMAT!r}, or ${AUDIO_FORMAT_ENV}); opus/m4a copy the "
+        "native stream when possible, mp3 always transcodes",
     )
     parser.add_argument(
         "-q",
@@ -240,7 +252,7 @@ def main() -> None:
             playlist_items=args.playlist_items,
             strip_patterns=args.strip_patterns,
             strip_meta=not args.no_strip_meta,
-            audio_format=args.audio_format,
+            audio_format=resolve_audio_format(args.audio_format),
             audio_quality=resolve_audio_quality(args.audio_quality),
             chapters_file=args.chapters_file,
             output_dir=resolve_output_dir(args.output_dir),
