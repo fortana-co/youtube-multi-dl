@@ -16,6 +16,8 @@ Run `youtube-music-dl --version`. If a command later fails, verify the tooling:
 
 If a required binary is missing the CLI exits `1` with an error object whose `error.code` is `NO_FFMPEG` or `NO_JS_RUNTIME` — surface that to the user with the install hint.
 
+**Stale yt-dlp is the usual cause of sudden extraction failures.** YouTube changes often, so if a run fails with `NO_INFO`/`DOWNLOAD_FAILED` (or tracks fail unexpectedly), yt-dlp is probably out of date. The error message says so and includes the fix; you can run `youtube-music-dl upgrade` to update yt-dlp in place (prints before/after versions as JSON), then retry. It automatically uses the right mechanism for how the tool was installed (pip, or `uv tool upgrade` for uv installs).
+
 ## CLI contract (how to consume output)
 
 - **stdout is exactly one JSON object.** All logs/progress go to **stderr**. Always parse stdout as JSON; ignore or forward stderr. Example: `youtube-music-dl <url> -a "Artist" 2>/dev/null`
@@ -48,7 +50,7 @@ Error object: `{"version":"1","ok":false,"error":{"code":"…","message":"…"}}
 - `-o/--output-dir DIR`: an `<artist>/<album>/` directory is created inside DIR. If omitted, defaults to `$YMD_OUTPUT_DIR` (a music dir the user may have configured), else the current directory. Prefer omitting `-o` when the user hasn't named a location, so their configured default is used; only ask where to save if neither is available.
 - `--chapters-file FILE.json`: split a single video at custom timestamps (JSON files are validated against the `chapters_file` schema from `--print-schema`; malformed ones fail with `INVALID_ARGS`)
 - `--probe`: report what a real run *would* do (mode, chapters, description) **without downloading**
-- `--print-schema` / `--print-skill`: print the JSON Schemas (`result`, `error`, `probe`, `retag`, `chapters_file`) / this document
+- `--print-schema` / `--print-skill`: print the JSON Schemas (`result`, `error`, `probe`, `retag`, `upgrade`, `chapters_file`) / this document
 
 See all command line options by running `youtube-music-dl -h`.
 

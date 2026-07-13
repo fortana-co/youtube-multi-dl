@@ -15,9 +15,11 @@ Design notes:
 """
 
 import csv
+import importlib.util
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -44,7 +46,7 @@ EXT_BY_FORMAT = {"opus": ".opus", "m4a": ".m4a", "mp3": ".mp3"}
 
 # Per-format yt-dlp stream selection. We prefer the source stream whose codec matches the target so the postprocessor
 # can *copy* it (no re-encode); the `/bestaudio/best` tail is the fallback when that stream is missing (then the
-# postprocessor transcodes — see download_audio). The output extension is always EXT_BY_FORMAT[audio_format] regardless
+# postprocessor transcodes, see download_audio). The output extension is always EXT_BY_FORMAT[audio_format] regardless
 # of what got downloaded, because FFmpegExtractAudio normalizes everything to the requested codec.
 FORMAT_SELECTION = {
     "opus": "bestaudio[acodec=opus]/bestaudio/best",  # native Opus (webm) -> copy .opus
@@ -54,6 +56,44 @@ FORMAT_SELECTION = {
 # The source acodec prefix(es) that let each target be a copy rather than a re-encode.
 # mp3 is intentionally empty: it's always a transcode by design, so it never warrants a notice.
 COPY_SOURCE_BY_FORMAT = {"opus": ("opus",), "m4a": ("mp4a", "aac"), "mp3": ()}
+
+# YouTube changes often, so yt-dlp needs frequent updates; we ship it unpinned and help users refresh it.
+YT_DLP_SPEC = "yt-dlp[default]"
+DISTRIBUTION_NAME = "youtube-music-dl"
+
+
+def has_pip() -> bool:
+    """
+    Whether pip is importable in the running interpreter. True for pip/pipx installs; False for `uv tool` installs; uv
+    doesn't put pip in a tool's environment, which is how we tell them apart.
+    """
+    return importlib.util.find_spec("pip") is not None
+
+
+def ytdlp_upgrade_argv() -> list[str]:
+    """
+    The command to refresh yt-dlp, matched to how this tool was installed and targeting the environment whose yt-dlp we
+    actually import.
+
+    - pip/pipx installs have pip -> upgrade yt-dlp in place with pip.
+    - `uv tool` installs have no pip -> `uv tool upgrade` re-resolves the tool's deps (incl. yt-dlp) to latest.
+    """
+    if has_pip():
+        return [sys.executable, "-m", "pip", "install", "-U", YT_DLP_SPEC]
+    uv = shutil.which("uv")
+    if uv:
+        return [uv, "tool", "upgrade", DISTRIBUTION_NAME]
+    # Neither pip nor uv found: return the pip form so callers can still show a concrete command to run.
+    return [sys.executable, "-m", "pip", "install", "-U", YT_DLP_SPEC]
+
+
+def ytdlp_upgrade_command() -> str:
+    return " ".join(shlex.quote(a) for a in ytdlp_upgrade_argv())
+
+
+def outdated_ytdlp_hint() -> str:
+    """A hint appended to extraction failures: the usual cause is an out-of-date yt-dlp."""
+    return f"If this keeps happening, yt-dlp is probably out of date (YouTube changes frequently). Run `youtube-music-dl upgrade`, or: {ytdlp_upgrade_command()}"  # noqa: E501
 
 
 class UserError(Exception):
@@ -253,11 +293,7 @@ def detect_mode(top: Info, has_chapters_file: bool) -> str:
 
 def probe_hint(mode: str, has_chapters_file: bool) -> str:
     if mode == "single_songs":
-        return (
-            "Single video with no chapters. If this is a full album, its tracks may be listed in the "
-            "description (with timestamps or durations) — build a --chapters-file from it and re-run, or the "
-            "whole video is downloaded as one track. If it really is one song, pass --album."
-        )
+        return "Single video with no chapters. If this is a full album, its tracks may be listed in the description (with timestamps or durations) — build a --chapters-file from it and re-run, or the whole video is downloaded as one track. If it really is one song, pass --album."  # noqa: E501
     if mode == "chapters":
         return (
             "Will split this single video with the provided --chapters-file."
@@ -271,7 +307,7 @@ def probe_urls(urls: list[str], chapters_file: str = "") -> dict[str, Any]:
     """Report what a real run would do for a URL, without downloading (the `--probe` mode)."""
     top = probe(urls[0], probe_opts())
     if not top:
-        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}")
+        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}. {outdated_ytdlp_hint()}")
 
     mode = detect_mode(top, has_chapters_file=bool(chapters_file))
     entries: list[dict[str, Any]] = []
@@ -324,7 +360,7 @@ def downloader(
 
     top = probe(urls[0], probe_opts(playlist_items))
     if not top:
-        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}")
+        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}. {outdated_ytdlp_hint()}")
 
     mode = detect_mode(top, has_chapters_file=bool(chapters_file))
 
@@ -359,6 +395,10 @@ def downloader(
         tracks = do_single_songs(urls, ctx, track_numbers)
     else:
         tracks, chapters_file_used = do_chapters(urls[0], top, chapters_file, ctx)
+
+    failed = sum(1 for t in tracks if t.status == "failed") > 0
+    if failed:
+        log(f"note: {failed} track(s) failed. {outdated_ytdlp_hint()}")
 
     return {
         "version": SCHEMA_VERSION,
@@ -456,7 +496,7 @@ def do_chapters(url: str, top: Info, chapters_file: str, ctx: Ctx) -> tuple[list
     with tempfile.TemporaryDirectory(prefix="ymd-source-") as tmp:
         downloaded = download_audio(url, Path(tmp), ctx.audio_format, ctx.audio_quality, ctx.ext)
         if downloaded is None:
-            raise UserError("DOWNLOAD_FAILED", f"failed to download source video {url}")
+            raise UserError("DOWNLOAD_FAILED", f"failed to download source video {url}. {outdated_ytdlp_hint()}")
         info, source_path = downloaded
 
         if chapters_file:

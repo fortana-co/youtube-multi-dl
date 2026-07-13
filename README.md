@@ -37,7 +37,15 @@ youtube-music-dl <id_1> <id_2> <id_3> ... -a "Lucinda Williams" --album "Sweet O
 
 If a required binary is missing, `youtube-music-dl` tells you with an `error.code` of `NO_FFMPEG` or `NO_JS_RUNTIME`.
 
-It's worth noting that `yt-dlp` occasionally "breaks", for example because YouTube changes something that prevents it from properly downloading videos. In these cases fixes appear quickly. If `youtube-music-dl` suddenly stops working, try running `pip install --upgrade "yt-dlp[default]"` to upgrade `yt-dlp`.
+### Keeping yt-dlp up to date
+
+YouTube frequently changes its player internals to thwart downloaders, so `yt-dlp` needs regular updates to keep working (fixes usually land within days). `youtube-music-dl` deliberately **does not pin** `yt-dlp`: every install gets the latest, and you can update it in place any time without reinstalling `youtube-music-dl`. If downloads suddenly start failing, refresh `yt-dlp`:
+
+```sh
+youtube-music-dl upgrade
+```
+
+This upgrades `yt-dlp` in the same environment `youtube-music-dl` runs in. Under the hood it runs `pip install -U "yt-dlp[default]"`, or, if you installed via `uv tool`, it runs `uv tool upgrade youtube-music-dl` instead. When a download fails for a reason that looks like a stale `yt-dlp`, the error message says as much and includes the fix.
 
 ## What it does that plain yt-dlp doesn't
 

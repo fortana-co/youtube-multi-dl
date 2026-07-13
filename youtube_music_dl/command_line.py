@@ -17,25 +17,39 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from .downloader import AUDIO_FORMATS, DEFAULT_AUDIO_FORMAT, UserError, downloader, probe_urls, retag
+from .downloader import (
+    AUDIO_FORMATS,
+    DEFAULT_AUDIO_FORMAT,
+    YT_DLP_SPEC,
+    UserError,
+    downloader,
+    log,
+    probe_urls,
+    retag,
+    ytdlp_upgrade_argv,
+)
 from .schema import (
     CHAPTERS_FILE_SCHEMA,
     ERROR_SCHEMA,
     PROBE_SCHEMA,
     RESULT_SCHEMA,
     RETAG_SCHEMA,
+    SCHEMA_VERSION,
+    UPGRADE_SCHEMA,
     ErrorCode,
     make_error,
     validate_error,
     validate_probe,
     validate_result,
     validate_retag,
+    validate_upgrade,
 )
 
 if sys.version_info < (3, 12):
@@ -122,8 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--audio-format",
         choices=AUDIO_FORMATS,
         default="",  # empty so $YMD_AUDIO_FORMAT can supply the default; resolved in resolve_audio_format
-        help=f"audio format (default {DEFAULT_AUDIO_FORMAT!r}, or ${AUDIO_FORMAT_ENV}); opus/m4a copy the "
-        "native stream when possible, mp3 always transcodes",
+        help=f"audio format (default {DEFAULT_AUDIO_FORMAT!r}, or ${AUDIO_FORMAT_ENV}); opus/m4a copy the native stream when possible, mp3 always transcodes",  # noqa: E501
     )
     parser.add_argument(
         "-q",
@@ -166,6 +179,53 @@ def main_retag(argv: list[str]) -> None:
     sys.exit(0)
 
 
+def ytdlp_version() -> str | None:
+    """
+    The installed yt-dlp version, read fresh from disk in a subprocess so it's correct even right
+    after an in-place upgrade (the version already imported into this process would be stale).
+    """
+    try:
+        out = subprocess.check_output(
+            [sys.executable, "-c", "import importlib.metadata as m; print(m.version('yt-dlp'))"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return out.strip() or None
+    except Exception:
+        return None
+
+
+def main_upgrade(argv: list[str]) -> None:
+    argparse.ArgumentParser(
+        prog="youtube-music-dl upgrade",
+        description="Upgrade yt-dlp in the current environment. YouTube changes often, so keeping yt-dlp fresh fixes most 'it suddenly stopped working' breakages.",  # noqa: E501
+    ).parse_args(argv)  # no options, but honor -h and reject stray args
+
+    before = ytdlp_version()
+    cmd = ytdlp_upgrade_argv()  # picks pip or `uv tool upgrade` based on how the tool was installed
+    log(f"running: {' '.join(cmd)}")
+    completed = subprocess.run(cmd, stdout=sys.stderr.fileno(), stderr=sys.stderr.fileno())
+    if completed.returncode != 0:
+        fail(
+            "UPGRADE_FAILED",
+            f"couldn't upgrade yt-dlp (ran: {' '.join(cmd)}). Check your network and permissions, or upgrade yt-dlp manually: `pip install -U {YT_DLP_SPEC}`, or `uv tool upgrade youtube-music-dl` for a uv install.",  # noqa: E501
+        )
+    after = ytdlp_version()
+    if before and before == after:
+        log(f"yt-dlp is already up to date ({after}).")
+    result = {
+        "version": SCHEMA_VERSION,
+        "ok": True,
+        "action": "upgrade",
+        "package": "yt-dlp",
+        "from": before,
+        "to": after,
+    }
+    validate_upgrade(result)
+    emit(result)
+    sys.exit(0)
+
+
 def preflight(need_ffmpeg: bool = True) -> tuple[ErrorCode, str] | None:
     missing = [b for b in ("ffmpeg", "ffprobe") if not shutil.which(b)]
     if need_ffmpeg and missing:
@@ -198,6 +258,9 @@ def main() -> None:
         # "retag" can't be a URL or an 11-char video id, so this dispatch is unambiguous
         main_retag(argv[1:])
         return
+    if argv and argv[0] == "upgrade":
+        main_upgrade(argv[1:])
+        return
 
     parser = build_parser()
     args = parser.parse_args()
@@ -215,6 +278,7 @@ def main() -> None:
                 "error": ERROR_SCHEMA,
                 "probe": PROBE_SCHEMA,
                 "retag": RETAG_SCHEMA,
+                "upgrade": UPGRADE_SCHEMA,
                 "chapters_file": CHAPTERS_FILE_SCHEMA,
             }
         )

@@ -329,7 +329,7 @@ def test_cli_print_schema():
     proc = _run_cli("--print-schema")
     assert proc.returncode == 0
     data = json.loads(proc.stdout)
-    assert set(data) == {"result", "error", "probe", "retag", "chapters_file"}
+    assert set(data) == {"result", "error", "probe", "retag", "upgrade", "chapters_file"}
 
 
 def test_cli_print_skill():
@@ -432,6 +432,72 @@ def test_result_schema_format_enum_matches_audio_formats():
     from youtube_music_dl.downloader import AUDIO_FORMATS
 
     assert set(schema.RESULT_SCHEMA["properties"]["format"]["enum"]) == set(AUDIO_FORMATS)
+
+
+# --- keeping yt-dlp fresh (hint + `upgrade` subcommand) --------------------
+
+
+def test_outdated_ytdlp_hint(monkeypatch):
+    import youtube_music_dl.downloader as dl
+
+    monkeypatch.setattr(dl, "has_pip", lambda: True)  # deterministic regardless of the test env
+    hint = dl.outdated_ytdlp_hint()
+    assert "yt-dlp" in hint and dl.YT_DLP_SPEC in hint  # actionable upgrade command is present
+    assert "youtube-music-dl upgrade" in hint  # the self-heal subcommand is mentioned
+
+
+def test_ytdlp_upgrade_argv_selects_by_install(monkeypatch):
+    import youtube_music_dl.downloader as dl
+
+    # pip present (pip/pipx) -> upgrade yt-dlp with pip, in the running interpreter
+    monkeypatch.setattr(dl, "has_pip", lambda: True)
+    argv = dl.ytdlp_upgrade_argv()
+    assert argv[:3] == [sys.executable, "-m", "pip"] and dl.YT_DLP_SPEC in argv
+
+    # no pip but uv present (uv tool install) -> `uv tool upgrade <name>`
+    monkeypatch.setattr(dl, "has_pip", lambda: False)
+    monkeypatch.setattr(dl.shutil, "which", lambda name: "/usr/local/bin/uv" if name == "uv" else None)
+    assert dl.ytdlp_upgrade_argv() == ["/usr/local/bin/uv", "tool", "upgrade", dl.DISTRIBUTION_NAME]
+
+    # neither -> fall back to a concrete pip command (used only to show in the error message)
+    monkeypatch.setattr(dl.shutil, "which", lambda name: None)
+    assert dl.ytdlp_upgrade_argv()[:3] == [sys.executable, "-m", "pip"]
+
+
+def test_upgrade_subcommand_success(monkeypatch, capfd):
+    import youtube_music_dl.command_line as cl
+
+    class Done:
+        returncode = 0
+
+    monkeypatch.setattr(cl.subprocess, "run", lambda *a, **k: Done())
+    versions = iter(["2026.1.1", "2026.7.4"])  # before, after
+    monkeypatch.setattr(cl, "ytdlp_version", lambda: next(versions))
+
+    with pytest.raises(SystemExit) as exc:
+        cl.main_upgrade([])
+    assert exc.value.code == 0
+    out = json.loads(capfd.readouterr().out)
+    schema.validate_upgrade(out)
+    assert out["package"] == "yt-dlp" and out["from"] == "2026.1.1" and out["to"] == "2026.7.4"
+
+
+def test_upgrade_subcommand_failure(monkeypatch, capfd):
+    import youtube_music_dl.command_line as cl
+
+    class Failed:
+        returncode = 1  # e.g. no pip in a `uv tool` env, or a network error
+
+    monkeypatch.setattr(cl.subprocess, "run", lambda *a, **k: Failed())
+    monkeypatch.setattr(cl, "ytdlp_version", lambda: "2026.1.1")
+
+    with pytest.raises(SystemExit) as exc:
+        cl.main_upgrade([])
+    assert exc.value.code == 1
+    out = json.loads(capfd.readouterr().out)
+    schema.validate_error(out)
+    assert out["error"]["code"] == "UPGRADE_FAILED"
+    assert "uv tool upgrade" in out["error"]["message"]  # fallback path for isolated installs
 
 
 # --- chapters file JSON validation ----------------------------------------

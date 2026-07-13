@@ -22,6 +22,7 @@ ErrorCode = Literal[
     "NO_CHAPTERS_FILE",  # --chapters-file path does not exist
     "NO_INFO",  # yt-dlp could not extract info for the URL
     "DOWNLOAD_FAILED",  # the (single) source download failed
+    "UPGRADE_FAILED",  # `upgrade` subcommand could not upgrade yt-dlp
     "INTERRUPTED",  # KeyboardInterrupt
 ]
 ERROR_CODES: tuple[ErrorCode, ...] = get_args(ErrorCode)
@@ -183,8 +184,32 @@ RETAG_SCHEMA: dict[str, Any] = {
 }
 
 
+# --- upgrade output ----------------------------------------------------------
+# `upgrade` upgrades yt-dlp in the current environment (YouTube changes often, so
+# yt-dlp needs frequent updates). `from`/`to` are the yt-dlp versions before/after.
+
+UPGRADE_SCHEMA: dict[str, Any] = {
+    "title": "youtube-music-dl upgrade result",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["version", "ok", "action", "package", "from", "to"],
+    "properties": {
+        "version": {"const": SCHEMA_VERSION},
+        "ok": {"const": True},
+        "action": {"const": "upgrade"},
+        "package": {"const": "yt-dlp"},
+        "from": {"type": ["string", "null"], "description": "yt-dlp version before the upgrade, or null if unknown"},
+        "to": {"type": ["string", "null"], "description": "yt-dlp version after the upgrade, or null if unknown"},
+    },
+}
+
+
 def validate_result(obj: dict[str, Any]) -> None:
     jsonschema.validate(obj, RESULT_SCHEMA)
+
+
+def validate_upgrade(obj: dict[str, Any]) -> None:
+    jsonschema.validate(obj, UPGRADE_SCHEMA)
 
 
 def validate_chapters_file(obj: Any) -> None:
