@@ -94,7 +94,7 @@ The source video is not lost: it's stored in a `youtube_video_id` tag on each fi
 
 There are three formats, and **the file extension you get is always the format you asked for**. Note that you can set your own default with `YMD_AUDIO_FORMAT`. Pick by where you'll listen:
 
-- **`opus`** (default): the best quality-per-byte, and it's what YouTube stores natively, so it's copied without re-encoding on essentially every video. Plays everywhere except Apple Music and other apps in the Apple ecosystem (but works with mpv, VLC, IINA, Jellyfin, etc).
+- **`opus`** (default): the best quality-per-byte, and it (along with AAC) is what YouTube stores natively, so it's copied without re-encoding on essentially every video. Plays everywhere except Apple Music and other apps in the Apple ecosystem (but works with VLC, mpv, IINA, Jellyfin, etc).
 - **`m4a`**: native AAC in an MP4 container. Choose this e.g. if you live in **Apple Music**, which doesn't play Opus. Copied without re-encoding when an AAC stream is available (it almost always is).
 - **`mp3`**: maximum device compatibility (old car stereos, cheap players). Always transcoded, since YouTube never serves mp3.
 
