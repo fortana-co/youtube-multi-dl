@@ -156,6 +156,13 @@ def normalize_audio_quality(audio_quality: str) -> str:
     return normalized
 
 
+class TrackError(NamedTuple):
+    """Why a track failed: yt-dlp's own words, and whether re-running could ever fix it."""
+
+    message: str | None
+    permanent: bool
+
+
 class Track(NamedTuple):
     index: int
     status: str  # downloaded | skipped | failed
@@ -163,10 +170,8 @@ class Track(NamedTuple):
     youtube_video_id: str | None
     url: str | None
     file: str | None
-    # Why a track failed, straight from yt-dlp, and whether re-running could ever fix it. Both default to the
-    # "nothing to report" values so the many non-failure construction sites stay unchanged.
-    reason: str | None = None
-    permanent: bool = False
+    # Set for every failed track and no other, so it defaults to None and only the failure sites pass it.
+    error: TrackError | None = None
 
 
 class Outcome(NamedTuple, Generic[T]):
@@ -281,6 +286,21 @@ def is_permanent_failure(error: str) -> bool:
     """Whether yt-dlp's error says the video can never be fetched (vs. throttling, which a retry can clear)."""
     normalized = error.lower()
     return any(fragment in normalized for fragment in PERMANENT_ERROR_FRAGMENTS)
+
+
+def track_error(error: str) -> TrackError:
+    """Classify a yt-dlp error for a failed track. An empty error means yt-dlp said nothing, not that all is well."""
+    return TrackError(error or None, is_permanent_failure(error))
+
+
+def track_json(track: Track) -> dict[str, Any]:
+    """
+    Serialize a Track for the result JSON. The nested error is built by hand because a NamedTuple *is* a tuple, so
+    `json` would otherwise emit it as an array instead of an object.
+    """
+    data = track._asdict()
+    data["error"] = track.error._asdict() if track.error else None
+    return data
 
 
 def with_retries(fn: Callable[[], Outcome[T]], description: str) -> Outcome[T]:
@@ -491,8 +511,8 @@ def downloader(
     failed = [t for t in tracks if t.status == "failed"]
     if failed:
         # Only nag about yt-dlp when something failed for a reason an upgrade could plausibly fix.
-        if all(t.permanent for t in failed):
-            log(f"note: {len(failed)} track(s) failed permanently (see each track's reason); re-running won't help")
+        if all(t.error and t.error.permanent for t in failed):
+            log(f"note: {len(failed)} track(s) failed permanently (see each track's error); re-running won't help")
         else:
             log(f"note: {len(failed)} track(s) failed; re-running skips what succeeded. {outdated_ytdlp_hint()}")
 
@@ -505,7 +525,7 @@ def downloader(
         "directory": str(directory),
         "format": audio_format,
         "chapters_file": chapters_file_used,
-        "tracks": [t._asdict() for t in tracks],
+        "tracks": [track_json(t) for t in tracks],
     }
 
 
@@ -522,7 +542,9 @@ def do_playlist(top: Info, ctx: Ctx, track_numbers: str) -> list[Track]:
     for i, entry in enumerate(entries):
         index = tracks_nums[i] if tracks_nums else i + 1
         if entry is None:
-            results.append(Track(index, "failed", "", None, None, None))
+            # yt-dlp couldn't even list this entry, so there's no message to report and no way to tell whether a
+            # re-run would help; the conservative default (not permanent) says "worth retrying".
+            results.append(Track(index, "failed", "", None, None, None, track_error("")))
             continue
         video_id = entry.get("id")
         url = video_url(video_id) if video_id else None
@@ -546,7 +568,7 @@ def do_single_songs(urls: list[str], ctx: Ctx, track_numbers: str) -> list[Track
         index = tracks_nums[i] if tracks_nums else i + 1
         info, error = probe(url, probe_opts())
         if not info:
-            results.append(Track(index, "failed", "", None, url, None, error or None, is_permanent_failure(error)))
+            results.append(Track(index, "failed", "", None, url, None, track_error(error)))
             continue
         video_id = info.get("id")
         raw_title = info.get("title") or (video_id or "")
@@ -561,10 +583,10 @@ def do_single_songs(urls: list[str], ctx: Ctx, track_numbers: str) -> list[Track
 
 def download_and_tag(url: str | None, index: int, total: int, ctx: Ctx) -> Track:
     if not url:
-        return Track(index, "failed", "", None, None, None)
+        return Track(index, "failed", "", None, None, None, track_error(""))
     downloaded, error = download_audio(url, ctx.directory, ctx.audio_format, ctx.audio_quality, ctx.ext)
     if downloaded is None:
-        return Track(index, "failed", "", None, url, None, error or None, is_permanent_failure(error))
+        return Track(index, "failed", "", None, url, None, track_error(error))
     info, path = downloaded
     video_id = info.get("id")
     raw_title = info.get("title") or (video_id or "")
@@ -627,7 +649,9 @@ def do_chapters(url: str, top: Info, chapters_file: str, ctx: Ctx) -> tuple[list
                 results.append(Track(index, "downloaded", title, source_id, canonical, str(dest)))
             except Exception as e:  # report per-chapter failure, keep going
                 log(f"failed to split/tag chapter {index} ({title}): {e}")
-                results.append(Track(index, "failed", title, source_id, canonical, None))
+                # A local ffmpeg/tagging failure, so the yt-dlp classification doesn't apply: not permanent, because
+                # what usually fixes it is editing the chapter boundaries and re-running.
+                results.append(Track(index, "failed", title, source_id, canonical, None, TrackError(str(e), False)))
     return results, str(normalized_path)
 
 

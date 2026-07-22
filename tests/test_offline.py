@@ -263,8 +263,7 @@ def test_result_schema_accepts_sample():
                 "youtube_video_id": "abc",
                 "url": "https://y/watch?v=abc",
                 "file": "/abs/01.opus",
-                "reason": None,
-                "permanent": False,
+                "error": None,
             },
             {
                 "index": 2,
@@ -273,8 +272,7 @@ def test_result_schema_accepts_sample():
                 "youtube_video_id": None,
                 "url": "https://y/watch?v=def",
                 "file": None,
-                "reason": "ERROR: [youtube] def: Private video.",
-                "permanent": True,
+                "error": {"message": "ERROR: [youtube] def: Private video.", "permanent": True},
             },
         ],
     }
@@ -402,6 +400,39 @@ def test_with_retries_does_not_back_off_on_a_permanent_failure(monkeypatch):
     outcome = dl.with_retries(attempt, "downloading X")
     assert outcome.value is None and outcome.error == PRIVATE_VIDEO_ERROR  # the reason survives for the caller
     assert len(calls) == 1  # gave up immediately rather than waiting out the backoff
+
+
+def test_track_json_nests_the_error_as_an_object():
+    import youtube_music_dl.downloader as dl
+
+    ok = dl.track_json(dl.Track(1, "downloaded", "Song", "abc", "https://y/abc", "/abs/01.opus"))
+    assert ok["error"] is None  # always present, so consumers can tell "no error" from "old version"
+
+    failed = dl.track_json(dl.Track(2, "failed", "", None, "https://y/def", None, dl.track_error(PRIVATE_VIDEO_ERROR)))
+    # A NamedTuple is a tuple, so an un-converted error would serialize as an array; it has to be a JSON object
+    assert failed["error"] == {"message": PRIVATE_VIDEO_ERROR, "permanent": True}
+    assert json.loads(json.dumps(failed))["error"]["permanent"] is True
+
+
+def test_track_error_reports_an_unexplained_failure_as_retryable():
+    import youtube_music_dl.downloader as dl
+
+    assert dl.track_error("") == dl.TrackError(None, False)  # yt-dlp said nothing -> null message, worth retrying
+    assert dl.track_error(THROTTLED_ERROR) == dl.TrackError(THROTTLED_ERROR, False)
+
+
+def test_track_schema_ties_the_error_to_the_status():
+    base = {"index": 1, "title": "Song", "youtube_video_id": "abc", "url": "https://y/abc", "file": "/abs/01.opus"}
+    err = {"message": "ERROR: [youtube] abc: Private video.", "permanent": True}
+
+    jsonschema.validate({**base, "status": "failed", "file": None, "error": err}, schema.TRACK_SCHEMA)
+    jsonschema.validate({**base, "status": "downloaded", "error": None}, schema.TRACK_SCHEMA)
+
+    # A failed track must explain itself, and a successful one must not claim an error
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**base, "status": "failed", "file": None, "error": None}, schema.TRACK_SCHEMA)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**base, "status": "downloaded", "error": err}, schema.TRACK_SCHEMA)
 
 
 def test_extraction_failed_message_only_blames_ytdlp_when_it_might_be_at_fault():

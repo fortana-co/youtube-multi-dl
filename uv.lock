@@ -611,7 +611,7 @@ wheels = [
 
 [[package]]
 name = "youtube-music-dl"
-version = "4.2.0"
+version = "4.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },

@@ -27,10 +27,26 @@ ErrorCode = Literal[
 ]
 ERROR_CODES: tuple[ErrorCode, ...] = get_args(ErrorCode)
 
+TRACK_ERROR_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["message", "permanent"],
+    "properties": {
+        "message": {
+            "type": ["string", "null"],
+            "description": "yt-dlp's explanation of the failure, or null when it gave none",
+        },
+        "permanent": {
+            "type": "boolean",
+            "description": "true when re-running can never fix this (private, deleted, or region-blocked video); false when the failure may be transient (throttling), so re-running the same command is worth trying -- already-downloaded tracks are skipped",  # noqa: E501
+        },
+    },
+}
+
 TRACK_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["index", "status", "title", "youtube_video_id", "url", "file", "reason", "permanent"],
+    "required": ["index", "status", "title", "youtube_video_id", "url", "file", "error"],
     "properties": {
         "index": {"type": "integer", "minimum": 1},
         "status": {"enum": ["downloaded", "skipped", "failed"]},
@@ -38,17 +54,15 @@ TRACK_SCHEMA: dict[str, Any] = {
         "youtube_video_id": {"type": ["string", "null"]},
         "url": {"type": ["string", "null"]},
         "file": {"type": ["string", "null"]},
-        "reason": {
-            "type": ["string", "null"],
-            "description": "why a failed track failed, as reported by yt-dlp; null unless status is 'failed'",
-        },
-        "permanent": {
-            "type": "boolean",
-            "description": (
-                "true when the failure can never be fixed by re-running (private, deleted, or region-blocked video). false for a track that succeeded, and for a failure that may be transient (throttling); re-run the same command to retry those; already-downloaded tracks are skipped."  # noqa: E501
-            ),
+        "error": {
+            "anyOf": [TRACK_ERROR_SCHEMA, {"type": "null"}],
+            "description": "why this track failed; null unless status is 'failed'",
         },
     },
+    # `error` is non-null exactly when the track failed, so either field can be branched on with the same result.
+    "if": {"properties": {"status": {"const": "failed"}}},
+    "then": {"properties": {"error": TRACK_ERROR_SCHEMA}},
+    "else": {"properties": {"error": {"type": "null"}}},
 }
 
 RESULT_SCHEMA: dict[str, Any] = {
