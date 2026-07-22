@@ -263,6 +263,18 @@ def test_result_schema_accepts_sample():
                 "youtube_video_id": "abc",
                 "url": "https://y/watch?v=abc",
                 "file": "/abs/01.opus",
+                "reason": None,
+                "permanent": False,
+            },
+            {
+                "index": 2,
+                "status": "failed",
+                "title": "",
+                "youtube_video_id": None,
+                "url": "https://y/watch?v=def",
+                "file": None,
+                "reason": "ERROR: [youtube] def: Private video.",
+                "permanent": True,
             },
         ],
     }
@@ -314,6 +326,93 @@ def test_probe_schema_accepts_sample():
         "hint": "single video with no chapters",
     }
     schema.validate_probe(sample)
+
+
+# --- retrying transient extraction failures (no network) ------------------
+
+
+PRIVATE_VIDEO_ERROR = "ERROR: [youtube] abc123: Private video. Sign in if you've been granted access to this video."
+THROTTLED_ERROR = "ERROR: [youtube] abc123: Sign in to confirm you're not a bot. Use --cookies-from-browser."
+
+
+def test_is_permanent_failure_separates_dead_videos_from_throttling():
+    import youtube_music_dl.downloader as dl
+
+    assert dl.is_permanent_failure(PRIVATE_VIDEO_ERROR)
+    assert dl.is_permanent_failure("ERROR: [youtube] abc: Video unavailable")  # matched case-insensitively
+    # Throttling is what the retries exist for, so it must never be classified permanent
+    assert not dl.is_permanent_failure(THROTTLED_ERROR)
+    assert not dl.is_permanent_failure("ERROR: unable to download webpage: HTTP Error 429: Too Many Requests")
+    assert not dl.is_permanent_failure("")  # no reason at all -> retry, the safe default
+    assert not dl.is_permanent_failure("ERROR: something yt-dlp has never said before")  # unknown -> retry
+
+
+def test_with_retries_returns_first_success_without_sleeping(monkeypatch):
+    import youtube_music_dl.downloader as dl
+
+    monkeypatch.setattr(dl.time, "sleep", lambda s: pytest.fail(f"slept {s}s on a first-try success"))
+    calls: list[int] = []
+
+    def attempt() -> dl.Outcome[str]:
+        calls.append(1)
+        return dl.Outcome("ok")
+
+    assert dl.with_retries(attempt, "downloading X").value == "ok"
+    assert len(calls) == 1
+
+
+def test_with_retries_recovers_from_a_transient_failure(monkeypatch, capfd):
+    import youtube_music_dl.downloader as dl
+
+    slept_s: list[float] = []
+    monkeypatch.setattr(dl.time, "sleep", slept_s.append)
+    outcomes = [dl.Outcome(None, THROTTLED_ERROR), dl.Outcome("ok")]  # throttled once, then succeeds
+
+    assert dl.with_retries(lambda: outcomes.pop(0), "downloading X").value == "ok"
+    assert slept_s == [dl.RETRY_DELAYS_S[0]]  # backed off once, and only once
+    assert "retrying" in capfd.readouterr().err  # the retry is visible on stderr
+
+
+def test_with_retries_gives_up_after_the_configured_delays(monkeypatch):
+    import youtube_music_dl.downloader as dl
+
+    slept_s: list[float] = []
+    monkeypatch.setattr(dl.time, "sleep", slept_s.append)
+    calls: list[int] = []
+
+    def attempt() -> dl.Outcome[str]:
+        calls.append(1)
+        return dl.Outcome(None, THROTTLED_ERROR)  # throttling that never clears
+
+    assert dl.with_retries(attempt, "downloading X").value is None
+    assert len(calls) == len(dl.RETRY_DELAYS_S) + 1  # one initial try plus one per delay
+    assert slept_s == list(dl.RETRY_DELAYS_S)
+
+
+def test_with_retries_does_not_back_off_on_a_permanent_failure(monkeypatch):
+    import youtube_music_dl.downloader as dl
+
+    monkeypatch.setattr(dl.time, "sleep", lambda s: pytest.fail(f"slept {s}s on a private video"))
+    calls: list[int] = []
+
+    def attempt() -> dl.Outcome[str]:
+        calls.append(1)
+        return dl.Outcome(None, PRIVATE_VIDEO_ERROR)
+
+    outcome = dl.with_retries(attempt, "downloading X")
+    assert outcome.value is None and outcome.error == PRIVATE_VIDEO_ERROR  # the reason survives for the caller
+    assert len(calls) == 1  # gave up immediately rather than waiting out the backoff
+
+
+def test_extraction_failed_message_only_blames_ytdlp_when_it_might_be_at_fault():
+    import youtube_music_dl.downloader as dl
+
+    permanent = dl.extraction_failed_message("couldn't extract info for U", PRIVATE_VIDEO_ERROR)
+    assert "Private video" in permanent
+    assert "upgrade" not in permanent  # the misdiagnosis this exists to prevent
+
+    transient = dl.extraction_failed_message("couldn't extract info for U", THROTTLED_ERROR)
+    assert "not a bot" in transient and "upgrade" in transient  # reason kept, hint still offered
 
 
 # --- self-describing CLI flags (subprocess, no network) -------------------

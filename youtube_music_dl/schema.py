@@ -30,7 +30,7 @@ ERROR_CODES: tuple[ErrorCode, ...] = get_args(ErrorCode)
 TRACK_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["index", "status", "title", "youtube_video_id", "url", "file"],
+    "required": ["index", "status", "title", "youtube_video_id", "url", "file", "reason", "permanent"],
     "properties": {
         "index": {"type": "integer", "minimum": 1},
         "status": {"enum": ["downloaded", "skipped", "failed"]},
@@ -38,6 +38,16 @@ TRACK_SCHEMA: dict[str, Any] = {
         "youtube_video_id": {"type": ["string", "null"]},
         "url": {"type": ["string", "null"]},
         "file": {"type": ["string", "null"]},
+        "reason": {
+            "type": ["string", "null"],
+            "description": "why a failed track failed, as reported by yt-dlp; null unless status is 'failed'",
+        },
+        "permanent": {
+            "type": "boolean",
+            "description": (
+                "true when the failure can never be fixed by re-running (private, deleted, or region-blocked video). false for a track that succeeded, and for a failure that may be transient (throttling); re-run the same command to retry those; already-downloaded tracks are skipped."  # noqa: E501
+            ),
+        },
     },
 }
 

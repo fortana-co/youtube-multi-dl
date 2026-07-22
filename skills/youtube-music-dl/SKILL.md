@@ -23,6 +23,7 @@ If a required binary is missing the CLI exits `1` with an error object whose `er
 - **stdout is exactly one JSON object.** All logs/progress go to **stderr**. Always parse stdout as JSON; ignore or forward stderr. Example: `youtube-music-dl <url> -a "Artist" 2>/dev/null`
 - **Exit codes:** `0` = every track downloaded or already present; `2` = some tracks failed (a result object is still emitted — inspect per-track `status`); `1` = fatal error (an error object with a stable `error.code`).
 - **Idempotent:** re-running skips tracks already present (matched by the `youtube_video_id` tag). Pass `--force` to re-download.
+- **On exit `2`, re-run the identical command.** YouTube throttles bursts of requests, so a track can fail once and succeed moments later; the tool retries in-process, but heavier rate limiting still gets through. Re-running only refetches what's missing. Don't diagnose a failure with `--probe` — a probe hits the same API and gets throttled too, so a failed probe can't tell a dead video from a rate-limited one. Read `tracks[].permanent` instead: `true` means private, deleted, or region-blocked, and no amount of re-running will help (`tracks[].reason` carries yt-dlp's explanation) — drop that track via `-p/--playlist-items` and move on. Only tracks with `permanent: false` are worth retrying.
 
 Success object (run `youtube-music-dl --print-schema` for the authoritative JSON Schemas of the result, error, and probe outputs):
 
@@ -33,7 +34,8 @@ Success object (run `youtube-music-dl --print-schema` for the authoritative JSON
   "chapters_file": null,
   "tracks": [
     {"index": 1, "status": "downloaded|skipped|failed",
-     "title": "…", "youtube_video_id": "…", "url": "…", "file": "/abs/path.opus"}
+     "title": "…", "youtube_video_id": "…", "url": "…", "file": "/abs/path.opus",
+     "reason": "yt-dlp's error, if this track failed", "permanent": false}
   ]
 }
 ```

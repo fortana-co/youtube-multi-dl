@@ -24,8 +24,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Generic, NamedTuple, TypeVar
 
 import jsonschema
 import yt_dlp
@@ -37,6 +39,28 @@ from .tagging import SUPPORTED_EXTENSIONS, existing_files_by_id, read_provenance
 youtube_dl: Any = yt_dlp
 
 Info = dict[str, Any]
+T = TypeVar("T")
+
+# YouTube throttles bursts of requests, which surfaces as an extraction that fails and then succeeds moments later, so
+# extractions are retried before being reported as failed. One entry per retry; a video whose failure we can't classify
+# costs their sum in extra wall time. Kept short because downloads are serial, which already spaces requests out.
+RETRY_DELAYS_S = (2.0, 5.0)
+
+# Substrings (matched case-insensitively) of yt-dlp errors that no retry can fix, so we fail fast instead of backing
+# off. Deliberately conservative: an unrecognized error is treated as transient and retried, so the worst case for a
+# missing entry here is the wait we'd have done anyway. Never add throttling messages ("429", "confirm you're not a
+# bot"); those are exactly what the retries exist for. Error text comes from YouTube, which means it can change w/o
+# warning, but it probably won't -- these error messages have been stable for a long time. TODO: We could upload videos
+# and add tests for these error cases.
+PERMANENT_ERROR_FRAGMENTS = (
+    "private video",
+    "video unavailable",
+    "removed by the uploader",
+    "video has been removed",
+    "account associated with this video has been terminated",
+    "members-only content",
+    "not available in your country",
+)
 
 AUDIO_FORMATS = ("opus", "m4a", "mp3")
 DEFAULT_AUDIO_FORMAT = "opus"
@@ -139,6 +163,17 @@ class Track(NamedTuple):
     youtube_video_id: str | None
     url: str | None
     file: str | None
+    # Why a track failed, straight from yt-dlp, and whether re-running could ever fix it. Both default to the
+    # "nothing to report" values so the many non-failure construction sites stay unchanged.
+    reason: str | None = None
+    permanent: bool = False
+
+
+class Outcome(NamedTuple, Generic[T]):
+    """One extraction attempt: the value, or None plus the error yt-dlp reported for it."""
+
+    value: T | None
+    error: str = ""
 
 
 class Chapter(NamedTuple):
@@ -165,7 +200,14 @@ def log(message: str) -> None:
 
 
 class StderrLogger:
-    """yt-dlp logger that keeps all of yt-dlp's chatter on stderr."""
+    """
+    yt-dlp logger that keeps all of yt-dlp's chatter on stderr, and retains the last error it saw. That last error is
+    the only explanation of *why* an extraction failed: yt-dlp runs with `ignoreerrors`, so it reports failure by
+    returning None and the reason survives nowhere else. One logger per extraction, so it can't pick up another's error.
+    """
+
+    def __init__(self) -> None:
+        self.last_error: str = ""
 
     def debug(self, msg: str) -> None:
         if not msg.startswith("[debug] "):
@@ -178,6 +220,7 @@ class StderrLogger:
         log(msg)
 
     def error(self, msg: str) -> None:
+        self.last_error = msg
         log(msg)
 
 
@@ -195,11 +238,11 @@ def js_runtimes_opt() -> dict[str, dict[str, Any]] | None:
 
 
 def base_opts() -> dict[str, Any]:
+    # No "logger" here: each extraction injects its own StderrLogger so it can read back that call's error.
     opts: dict[str, Any] = {
         "ignoreerrors": True,
         "quiet": True,
         "noprogress": True,
-        "logger": StderrLogger(),
     }
     runtimes = js_runtimes_opt()
     if runtimes is not None:
@@ -234,27 +277,76 @@ def download_opts(target_dir: Path, audio_format: str, audio_quality: str) -> di
     return opts
 
 
-def probe(url: str, opts: dict[str, Any]) -> Info | None:
-    with youtube_dl.YoutubeDL(opts) as ydl:
-        return ydl.extract_info(url, download=False)
+def is_permanent_failure(error: str) -> bool:
+    """Whether yt-dlp's error says the video can never be fetched (vs. throttling, which a retry can clear)."""
+    normalized = error.lower()
+    return any(fragment in normalized for fragment in PERMANENT_ERROR_FRAGMENTS)
+
+
+def with_retries(fn: Callable[[], Outcome[T]], description: str) -> Outcome[T]:
+    """
+    Call `fn` until it succeeds, pausing RETRY_DELAYS_S between tries. Returns early on a failure yt-dlp has told
+    us is permanent, so a private or deleted video is reported immediately instead of after the full backoff.
+    """
+    for delay_s in RETRY_DELAYS_S:
+        outcome = fn()
+        if outcome.value is not None:
+            return outcome
+        if is_permanent_failure(outcome.error):
+            return outcome
+        log(f"{description} failed, retrying in {delay_s:g}s")
+        time.sleep(delay_s)
+    return fn()
+
+
+def extraction_failed_message(prefix: str, error: str) -> str:
+    """
+    Explain a failed extraction. A permanent failure gets yt-dlp's own reason and nothing else; anything else keeps the
+    upgrade hint, since an unexplained failure really can mean yt-dlp has fallen behind YouTube. This lets us avoid
+    sending someone to run `upgrade` because a video was private.
+    """
+    if is_permanent_failure(error):
+        return f"{prefix}: {error}"
+    detail = f" ({error})" if error else ""
+    return f"{prefix}{detail}. {outdated_ytdlp_hint()}"
+
+
+def probe(url: str, opts: dict[str, Any]) -> Outcome[Info]:
+    return with_retries(lambda: probe_once(url, opts), f"extracting info for {url}")
+
+
+def probe_once(url: str, opts: dict[str, Any]) -> Outcome[Info]:
+    logger = StderrLogger()
+    with youtube_dl.YoutubeDL({**opts, "logger": logger}) as ydl:
+        return Outcome(ydl.extract_info(url, download=False), logger.last_error)
 
 
 def download_audio(
     url: str, target_dir: Path, audio_format: str, audio_quality: str, ext: str
-) -> tuple[Info, Path] | None:
-    """Download one video's audio into target_dir. Returns (info, final_path) or None."""
-    with youtube_dl.YoutubeDL(download_opts(target_dir, audio_format, audio_quality)) as ydl:
+) -> Outcome[tuple[Info, Path]]:
+    return with_retries(
+        lambda: download_audio_once(url, target_dir, audio_format, audio_quality, ext), f"downloading {url}"
+    )
+
+
+def download_audio_once(
+    url: str, target_dir: Path, audio_format: str, audio_quality: str, ext: str
+) -> Outcome[tuple[Info, Path]]:
+    """Download one video's audio into target_dir. Returns (info, final_path), or None plus yt-dlp's error."""
+    logger = StderrLogger()
+    opts = {**download_opts(target_dir, audio_format, audio_quality), "logger": logger}
+    with youtube_dl.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
     if not info:
-        return None
+        return Outcome(None, logger.last_error)
     video_id = info.get("id")
     if not video_id:
-        return None
+        return Outcome(None, logger.last_error)
     path = target_dir / f"{video_id}{ext}"
     if not path.exists():
-        return None
+        return Outcome(None, logger.last_error)
     warn_if_transcoded(info, audio_format, video_id)
-    return info, path
+    return Outcome((info, path), logger.last_error)
 
 
 def warn_if_transcoded(info: Info, audio_format: str, video_id: str) -> None:
@@ -293,7 +385,7 @@ def detect_mode(top: Info, has_chapters_file: bool) -> str:
 
 def probe_hint(mode: str, has_chapters_file: bool) -> str:
     if mode == "single_songs":
-        return "Single video with no chapters. If this is a full album, its tracks may be listed in the description (with timestamps or durations) — build a --chapters-file from it and re-run, or the whole video is downloaded as one track. If it really is one song, pass --album."  # noqa: E501
+        return "Single video with no chapters. If this is a full album, its tracks may be listed in the description (with timestamps or durations); build a --chapters-file from it and re-run, or the whole video is downloaded as one track. If it really is one song, pass --album."  # noqa: E501
     if mode == "chapters":
         return (
             "Will split this single video with the provided --chapters-file."
@@ -305,9 +397,9 @@ def probe_hint(mode: str, has_chapters_file: bool) -> str:
 
 def probe_urls(urls: list[str], chapters_file: str = "") -> dict[str, Any]:
     """Report what a real run would do for a URL, without downloading (the `--probe` mode)."""
-    top = probe(urls[0], probe_opts())
+    top, error = probe(urls[0], probe_opts())
     if not top:
-        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}. {outdated_ytdlp_hint()}")
+        raise UserError("NO_INFO", extraction_failed_message(f"couldn't extract info for {urls[0]}", error))
 
     mode = detect_mode(top, has_chapters_file=bool(chapters_file))
     entries: list[dict[str, Any]] = []
@@ -358,9 +450,9 @@ def downloader(
 
     base_dir = Path(os.path.expanduser(output_dir)).resolve() if output_dir else Path.cwd()
 
-    top = probe(urls[0], probe_opts(playlist_items))
+    top, error = probe(urls[0], probe_opts(playlist_items))
     if not top:
-        raise UserError("NO_INFO", f"couldn't extract info for {urls[0]}. {outdated_ytdlp_hint()}")
+        raise UserError("NO_INFO", extraction_failed_message(f"couldn't extract info for {urls[0]}", error))
 
     mode = detect_mode(top, has_chapters_file=bool(chapters_file))
 
@@ -396,9 +488,13 @@ def downloader(
     else:
         tracks, chapters_file_used = do_chapters(urls[0], top, chapters_file, ctx)
 
-    failed = sum(1 for t in tracks if t.status == "failed") > 0
+    failed = [t for t in tracks if t.status == "failed"]
     if failed:
-        log(f"note: {failed} track(s) failed. {outdated_ytdlp_hint()}")
+        # Only nag about yt-dlp when something failed for a reason an upgrade could plausibly fix.
+        if all(t.permanent for t in failed):
+            log(f"note: {len(failed)} track(s) failed permanently (see each track's reason); re-running won't help")
+        else:
+            log(f"note: {len(failed)} track(s) failed; re-running skips what succeeded. {outdated_ytdlp_hint()}")
 
     return {
         "version": SCHEMA_VERSION,
@@ -448,9 +544,9 @@ def do_single_songs(urls: list[str], ctx: Ctx, track_numbers: str) -> list[Track
     results: list[Track] = []
     for i, url in enumerate(urls):
         index = tracks_nums[i] if tracks_nums else i + 1
-        info = probe(url, probe_opts())
+        info, error = probe(url, probe_opts())
         if not info:
-            results.append(Track(index, "failed", "", None, url, None))
+            results.append(Track(index, "failed", "", None, url, None, error or None, is_permanent_failure(error)))
             continue
         video_id = info.get("id")
         raw_title = info.get("title") or (video_id or "")
@@ -466,9 +562,9 @@ def do_single_songs(urls: list[str], ctx: Ctx, track_numbers: str) -> list[Track
 def download_and_tag(url: str | None, index: int, total: int, ctx: Ctx) -> Track:
     if not url:
         return Track(index, "failed", "", None, None, None)
-    downloaded = download_audio(url, ctx.directory, ctx.audio_format, ctx.audio_quality, ctx.ext)
+    downloaded, error = download_audio(url, ctx.directory, ctx.audio_format, ctx.audio_quality, ctx.ext)
     if downloaded is None:
-        return Track(index, "failed", "", None, url, None)
+        return Track(index, "failed", "", None, url, None, error or None, is_permanent_failure(error))
     info, path = downloaded
     video_id = info.get("id")
     raw_title = info.get("title") or (video_id or "")
@@ -494,9 +590,10 @@ def do_chapters(url: str, top: Info, chapters_file: str, ctx: Ctx) -> tuple[list
         return ([Track(i + 1, "skipped", f.stem, source_id, canonical, str(f)) for i, f in enumerate(files)], None)
 
     with tempfile.TemporaryDirectory(prefix="ymd-source-") as tmp:
-        downloaded = download_audio(url, Path(tmp), ctx.audio_format, ctx.audio_quality, ctx.ext)
+        downloaded, error = download_audio(url, Path(tmp), ctx.audio_format, ctx.audio_quality, ctx.ext)
         if downloaded is None:
-            raise UserError("DOWNLOAD_FAILED", f"failed to download source video {url}. {outdated_ytdlp_hint()}")
+            message = extraction_failed_message(f"failed to download source video {url}", error)
+            raise UserError("DOWNLOAD_FAILED", message)
         info, source_path = downloaded
 
         if chapters_file:
